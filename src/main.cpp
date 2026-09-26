@@ -1,10 +1,13 @@
 #include "../include/Book.h"
+#include "../include/Member.h"
+#include "../include/Admin.h"
 #include <iostream>
 
 using namespace std;
 
 int main() {
 
+    // ---------------- Book ----------------
     Book book(
         1,
         "Clean Code",
@@ -14,7 +17,6 @@ int main() {
 
     cout << "Book: " << book.getTitle() << endl;
     cout << "Author: " << book.getAuthor() << endl;
-    cout << "ISBN: " << book.getIsbn() << endl;
 
     cout << "\nAvailability: "
          << (book.isAvailable() ? "Available" : "Not Available")
@@ -27,15 +29,45 @@ int main() {
          << (book.isAvailable() ? "Available" : "Not Available")
          << endl;
 
-    cout << "\n--- Trying to borrow again ---\n";
-    book.borrow();
 
-    cout << "\n--- Returning ---\n";
-    book.returnBook();
+    // ---------------- Member ----------------
+    Member member(
+        101,
+        "Piyush",
+        "piyush@gmail.com"
+    );
 
-    cout << "Availability: "
-         << (book.isAvailable() ? "Available" : "Not Available")
-         << endl;
+    cout << "\n--- Member ---\n";
+    cout << "ID: " << member.getId() << endl;
+    cout << "Name: " << member.getName() << endl;
+    cout << "Email: " << member.getEmail() << endl;
+
+    member.displayRole();
+
+
+    // ---------------- Admin ----------------
+    Admin admin(
+        1,
+        "Library Admin",
+        "admin@library.com"
+    );
+
+    cout << "\n--- Admin ---\n";
+    cout << "ID: " << admin.getId() << endl;
+    cout << "Name: " << admin.getName() << endl;
+    cout << "Email: " << admin.getEmail() << endl;
+
+    admin.displayRole();
+
+
+    // ---------------- Runtime Polymorphism ----------------
+    cout << "\n--- Runtime Polymorphism ---\n";
+
+    User* user1 = &member;
+    User* user2 = &admin;
+
+    user1->displayRole();
+    user2->displayRole();
 
     return 0;
 }
