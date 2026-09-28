@@ -2,15 +2,40 @@
 #include "../include/Member.h"
 #include "../include/Admin.h"
 #include "../include/Library.h"
+#include "../include/Database.h"
 #include <iostream>
+#include <string>
 
 using namespace std;
 
 int main() {
 
+    // ---------------- Database Connection ----------------
+
+    string connectionString =
+        "host=localhost "
+        "port=5432 "
+        "dbname=library_management "
+        "user=postgres "
+        "password=YOUR_POSTGRES_PASSWORD";
+
+    Database database(connectionString);
+
+    if (database.testConnection()) {
+        cout << "Database connection successful!" << endl;
+    } else {
+        cout << "Database connection failed!" << endl;
+        return 1;
+    }
+
+
+    // ---------------- Library ----------------
+
     Library library;
 
-    // Create books
+
+    // ---------------- Create Books ----------------
+
     Book book1(
         1,
         "Clean Code",
@@ -25,48 +50,71 @@ int main() {
         "9780135957059"
     );
 
-    // Create member
+
+    // ---------------- Create Member ----------------
+
     Member member(
         101,
         "Piyush",
         "piyush@gmail.com"
     );
 
-    // Create admin
+
+    // ---------------- Create Admin ----------------
+
     Admin admin(
         1,
         "Library Admin",
         "admin@library.com"
     );
 
-    // Add data to library
+
+    // ---------------- Add Data to Library ----------------
+
     library.addBook(book1);
     library.addBook(book2);
     library.addMember(member);
 
-    cout << "===== INITIAL LIBRARY =====\n";
+
+    // ---------------- Display Books ----------------
+
+    cout << "\n===== INITIAL LIBRARY =====\n";
+
     library.displayBooks();
 
-    // Borrow
+
+    // ---------------- Borrow Book ----------------
+
     cout << "===== BORROW BOOK =====\n";
+
     library.borrowBook(101, 1);
 
     library.displayBooks();
 
-    // Try borrowing the same book again
+
+    // ---------------- Try Borrowing Again ----------------
+
     cout << "===== BORROW SAME BOOK AGAIN =====\n";
+
     library.borrowBook(101, 1);
 
-    // Return
+
+    // ---------------- Return Book ----------------
+
     cout << "\n===== RETURN BOOK =====\n";
+
     library.returnBook(101, 1);
 
     library.displayBooks();
 
-    // Display transactions
+
+    // ---------------- Display Transactions ----------------
+
     library.displayTransactions();
 
-    // Runtime polymorphism
+
+    // ---------------- Runtime Polymorphism ----------------
+
     cout << "===== RUNTIME POLYMORPHISM =====\n";
 
     User* user1 = &member;
@@ -74,6 +122,7 @@ int main() {
 
     user1->displayRole();
     user2->displayRole();
+
 
     return 0;
 }
