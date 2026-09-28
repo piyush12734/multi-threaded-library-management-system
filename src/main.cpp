@@ -1,6 +1,7 @@
 #include "../include/Book.h"
 #include "../include/Member.h"
 #include "../include/Admin.h"
+#include "../include/Transaction.h"
 #include <iostream>
 
 using namespace std;
@@ -19,13 +20,6 @@ int main() {
     cout << "Author: " << book.getAuthor() << endl;
 
     cout << "\nAvailability: "
-         << (book.isAvailable() ? "Available" : "Not Available")
-         << endl;
-
-    cout << "\n--- Borrowing ---\n";
-    book.borrow();
-
-    cout << "Availability: "
          << (book.isAvailable() ? "Available" : "Not Available")
          << endl;
 
@@ -58,6 +52,28 @@ int main() {
     cout << "Email: " << admin.getEmail() << endl;
 
     admin.displayRole();
+
+
+    // ---------------- Borrow Book ----------------
+    cout << "\n--- Borrowing Book ---\n";
+
+    book.borrow();
+
+    cout << "Availability: "
+         << (book.isAvailable() ? "Available" : "Not Available")
+         << endl;
+
+
+    // ---------------- Transaction ----------------
+    Transaction transaction(
+        1,
+        member.getId(),
+        book.getId(),
+        TransactionType::BORROW
+    );
+
+    cout << "\n--- Transaction ---\n";
+    transaction.display();
 
 
     // ---------------- Runtime Polymorphism ----------------
