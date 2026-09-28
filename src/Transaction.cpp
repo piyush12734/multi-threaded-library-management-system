@@ -15,7 +15,7 @@ Transaction::Transaction(
     this->type = type;
 }
 
-int Transaction::getTransactionId() const {
+int Transaction::getId() const {
     return transactionId;
 }
 

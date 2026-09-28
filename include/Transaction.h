@@ -25,7 +25,7 @@ public:
         TransactionType type
     );
 
-    int getTransactionId() const;
+    int getId() const;
     int getMemberId() const;
     int getBookId() const;
     TransactionType getType() const;
