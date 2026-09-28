@@ -1,83 +1,73 @@
 #include "../include/Book.h"
 #include "../include/Member.h"
 #include "../include/Admin.h"
-#include "../include/Transaction.h"
+#include "../include/Library.h"
 #include <iostream>
 
 using namespace std;
 
 int main() {
 
-    // ---------------- Book ----------------
-    Book book(
+    Library library;
+
+    // Create books
+    Book book1(
         1,
         "Clean Code",
         "Robert C. Martin",
         "9780132350884"
     );
 
-    cout << "Book: " << book.getTitle() << endl;
-    cout << "Author: " << book.getAuthor() << endl;
+    Book book2(
+        2,
+        "The Pragmatic Programmer",
+        "Andrew Hunt",
+        "9780135957059"
+    );
 
-    cout << "\nAvailability: "
-         << (book.isAvailable() ? "Available" : "Not Available")
-         << endl;
-
-
-    // ---------------- Member ----------------
+    // Create member
     Member member(
         101,
         "Piyush",
         "piyush@gmail.com"
     );
 
-    cout << "\n--- Member ---\n";
-    cout << "ID: " << member.getId() << endl;
-    cout << "Name: " << member.getName() << endl;
-    cout << "Email: " << member.getEmail() << endl;
-
-    member.displayRole();
-
-
-    // ---------------- Admin ----------------
+    // Create admin
     Admin admin(
         1,
         "Library Admin",
         "admin@library.com"
     );
 
-    cout << "\n--- Admin ---\n";
-    cout << "ID: " << admin.getId() << endl;
-    cout << "Name: " << admin.getName() << endl;
-    cout << "Email: " << admin.getEmail() << endl;
+    // Add data to library
+    library.addBook(book1);
+    library.addBook(book2);
+    library.addMember(member);
 
-    admin.displayRole();
+    cout << "===== INITIAL LIBRARY =====\n";
+    library.displayBooks();
 
+    // Borrow
+    cout << "===== BORROW BOOK =====\n";
+    library.borrowBook(101, 1);
 
-    // ---------------- Borrow Book ----------------
-    cout << "\n--- Borrowing Book ---\n";
+    library.displayBooks();
 
-    book.borrow();
+    // Try borrowing the same book again
+    cout << "===== BORROW SAME BOOK AGAIN =====\n";
+    library.borrowBook(101, 1);
 
-    cout << "Availability: "
-         << (book.isAvailable() ? "Available" : "Not Available")
-         << endl;
+    // Return
+    cout << "\n===== RETURN BOOK =====\n";
+    library.returnBook(101, 1);
 
+    library.displayBooks();
 
-    // ---------------- Transaction ----------------
-    Transaction transaction(
-        1,
-        member.getId(),
-        book.getId(),
-        TransactionType::BORROW
-    );
+    // Display transactions
+    library.displayTransactions();
 
-    cout << "\n--- Transaction ---\n";
-    transaction.display();
-
-
-    // ---------------- Runtime Polymorphism ----------------
-    cout << "\n--- Runtime Polymorphism ---\n";
+    // Runtime polymorphism
+    cout << "===== RUNTIME POLYMORPHISM =====\n";
 
     User* user1 = &member;
     User* user2 = &admin;
