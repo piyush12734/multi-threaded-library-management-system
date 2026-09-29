@@ -14,6 +14,13 @@ public:
     Database(const string& connectionString);
 
     bool testConnection();
+
+    void insertBook(
+        int id,
+        const string& title,
+        const string& author,
+        const string& isbn
+    );
 };
 
 #endif

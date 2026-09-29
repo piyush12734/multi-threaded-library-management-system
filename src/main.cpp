@@ -5,6 +5,7 @@
 #include "../include/Database.h"
 #include <iostream>
 #include <string>
+#include <cstdlib>
 
 using namespace std;
 
@@ -12,12 +13,19 @@ int main() {
 
     // ---------------- Database Connection ----------------
 
+    const char* password = getenv("LIBRARY_DB_PASSWORD");
+
+    if (password == nullptr) {
+        cerr << "LIBRARY_DB_PASSWORD is not set." << endl;
+        return 1;
+    }
+
     string connectionString =
         "host=localhost "
         "port=5432 "
         "dbname=library_management "
         "user=postgres "
-        "password=YOUR_POSTGRES_PASSWORD";
+        "password=" + string(password);
 
     Database database(connectionString);
 
@@ -27,6 +35,17 @@ int main() {
         cout << "Database connection failed!" << endl;
         return 1;
     }
+    database.insertBook(
+    1,
+    "Clean Code",
+    "Robert C. Martin",
+    "9780132350884");
+    
+    database.insertBook(
+    2,
+    "The Pragmatic Programmer",
+    "Andrew Hunt",
+    "9780135957059");
 
 
     // ---------------- Library ----------------

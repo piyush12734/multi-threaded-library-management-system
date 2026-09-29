@@ -28,3 +28,37 @@ bool Database::testConnection() {
         return false;
     }
 }
+
+void Database::insertBook(
+    int id,
+    const string& title,
+    const string& author,
+    const string& isbn
+) {
+
+    try {
+        pqxx::work transaction(connection);
+
+        transaction.exec(
+            "INSERT INTO books (id, title, author, isbn, available) "
+            "VALUES ($1, $2, $3, $4, TRUE)",
+            pqxx::params{
+                id,
+                title,
+                author,
+                isbn
+            }
+        );
+
+        transaction.commit();
+
+        cout << "Book inserted into database successfully."
+             << endl;
+
+    } catch (const exception& e) {
+
+        cerr << "Failed to insert book: "
+             << e.what()
+             << endl;
+    }
+}
