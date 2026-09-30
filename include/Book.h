@@ -14,7 +14,7 @@ private:
     bool available;
 
 public:
-    Book(int id, string title, string author, string isbn);
+    Book(int id, string title, string author, string isbn, bool available = true);
 
     void borrow();
     void returnBook();

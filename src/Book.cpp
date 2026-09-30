@@ -3,12 +3,18 @@
 
 using namespace std;
 
-Book::Book(int id, string title, string author, string isbn) {
+Book::Book(
+    int id,
+    string title,
+    string author,
+    string isbn,
+    bool available
+) {
     this->id = id;
     this->title = title;
     this->author = author;
     this->isbn = isbn;
-    this->available = true;
+    this->available = available;
 }
 
 void Book::borrow() {

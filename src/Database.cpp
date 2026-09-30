@@ -62,3 +62,54 @@ void Database::insertBook(
              << endl;
     }
 }
+
+vector<Book> Database::getBooks() {
+
+    vector<Book> books;
+
+    try {
+        pqxx::work transaction(connection);
+
+        pqxx::result result =
+            transaction.exec(
+                "SELECT id, title, author, isbn, available "
+                "FROM books "
+                "ORDER BY id"
+            );
+
+        for (const auto& row : result) {
+
+            int id = row["id"].as<int>();
+
+            string title =
+                row["title"].as<string>();
+
+            string author =
+                row["author"].as<string>();
+
+            string isbn =
+                row["isbn"].as<string>();
+
+            bool available =
+                row["available"].as<bool>();
+
+            books.emplace_back(
+                id,
+                title,
+                author,
+                isbn,
+                available
+            );
+        }
+
+        transaction.commit();
+
+    } catch (const exception& e) {
+
+        cerr << "Failed to fetch books: "
+             << e.what()
+             << endl;
+    }
+
+    return books;
+}

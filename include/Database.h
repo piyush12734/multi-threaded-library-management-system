@@ -2,7 +2,9 @@
 #define DATABASE_H
 
 #include <string>
+#include <vector>
 #include <pqxx/pqxx>
+#include "Book.h"
 
 using namespace std;
 
@@ -21,6 +23,8 @@ public:
         const string& author,
         const string& isbn
     );
+
+    vector<Book> getBooks();
 };
 
 #endif

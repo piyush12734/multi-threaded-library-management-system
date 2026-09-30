@@ -6,6 +6,7 @@
 #include <iostream>
 #include <string>
 #include <cstdlib>
+#include <vector>
 
 using namespace std;
 
@@ -35,17 +36,27 @@ int main() {
         cout << "Database connection failed!" << endl;
         return 1;
     }
-    database.insertBook(
-    1,
-    "Clean Code",
-    "Robert C. Martin",
-    "9780132350884");
-    
-    database.insertBook(
-    2,
-    "The Pragmatic Programmer",
-    "Andrew Hunt",
-    "9780135957059");
+
+
+    // ---------------- Fetch Books From Database ----------------
+
+    cout << "\n===== BOOKS FROM DATABASE =====\n";
+
+    vector<Book> databaseBooks = database.getBooks();
+
+    for (const Book& book : databaseBooks) {
+
+        cout << "ID: " << book.getId() << endl;
+        cout << "Title: " << book.getTitle() << endl;
+        cout << "Author: " << book.getAuthor() << endl;
+        cout << "ISBN: " << book.getIsbn() << endl;
+
+        cout << "Status: "
+             << (book.isAvailable() ? "Available" : "Borrowed")
+             << endl;
+
+        cout << endl;
+    }
 
 
     // ---------------- Library ----------------
@@ -88,7 +99,7 @@ int main() {
     );
 
 
-    // ---------------- Add Data to Library ----------------
+    // ---------------- Add Data To Library ----------------
 
     library.addBook(book1);
     library.addBook(book2);
