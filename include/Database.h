@@ -25,6 +25,7 @@ public:
     );
 
     vector<Book> getBooks();
+    void updateBookAvailability(int bookId, bool available);
 };
 
 #endif

@@ -113,3 +113,34 @@ vector<Book> Database::getBooks() {
 
     return books;
 }
+
+void Database::updateBookAvailability(
+    int bookId,
+    bool available
+) {
+
+    try {
+        pqxx::work transaction(connection);
+
+        transaction.exec(
+            "UPDATE books "
+            "SET available = $1 "
+            "WHERE id = $2",
+            pqxx::params{
+                available,
+                bookId
+            }
+        );
+
+        transaction.commit();
+
+        cout << "Book availability updated in database."
+             << endl;
+
+    } catch (const exception& e) {
+
+        cerr << "Failed to update book availability: "
+             << e.what()
+             << endl;
+    }
+}

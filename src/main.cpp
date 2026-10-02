@@ -3,6 +3,7 @@
 #include "../include/Admin.h"
 #include "../include/Library.h"
 #include "../include/Database.h"
+#include "../include/BookRepository.h"
 #include <iostream>
 #include <string>
 #include <cstdlib>
@@ -38,47 +39,14 @@ int main() {
     }
 
 
-    // ---------------- Fetch Books From Database ----------------
+    // ---------------- Book Repository ----------------
 
-    cout << "\n===== BOOKS FROM DATABASE =====\n";
-
-    vector<Book> databaseBooks = database.getBooks();
-
-    for (const Book& book : databaseBooks) {
-
-        cout << "ID: " << book.getId() << endl;
-        cout << "Title: " << book.getTitle() << endl;
-        cout << "Author: " << book.getAuthor() << endl;
-        cout << "ISBN: " << book.getIsbn() << endl;
-
-        cout << "Status: "
-             << (book.isAvailable() ? "Available" : "Borrowed")
-             << endl;
-
-        cout << endl;
-    }
+    BookRepository bookRepository(database);
 
 
     // ---------------- Library ----------------
 
-    Library library;
-
-
-    // ---------------- Create Books ----------------
-
-    Book book1(
-        1,
-        "Clean Code",
-        "Robert C. Martin",
-        "9780132350884"
-    );
-
-    Book book2(
-        2,
-        "The Pragmatic Programmer",
-        "Andrew Hunt",
-        "9780135957059"
-    );
+    Library library(bookRepository);
 
 
     // ---------------- Create Member ----------------
@@ -99,16 +67,14 @@ int main() {
     );
 
 
-    // ---------------- Add Data To Library ----------------
+    // ---------------- Add Member ----------------
 
-    library.addBook(book1);
-    library.addBook(book2);
     library.addMember(member);
 
 
-    // ---------------- Display Books ----------------
+    // ---------------- Display Books From Database ----------------
 
-    cout << "\n===== INITIAL LIBRARY =====\n";
+    cout << "\n===== BOOKS FROM DATABASE =====\n";
 
     library.displayBooks();
 
@@ -119,10 +85,14 @@ int main() {
 
     library.borrowBook(101, 1);
 
+
+    // Display database-backed book status
+    cout << "\n===== BOOKS AFTER BORROW =====\n";
+
     library.displayBooks();
 
 
-    // ---------------- Try Borrowing Again ----------------
+    // ---------------- Try Borrowing Same Book Again ----------------
 
     cout << "===== BORROW SAME BOOK AGAIN =====\n";
 
@@ -134,6 +104,10 @@ int main() {
     cout << "\n===== RETURN BOOK =====\n";
 
     library.returnBook(101, 1);
+
+
+    // Display database-backed book status
+    cout << "\n===== BOOKS AFTER RETURN =====\n";
 
     library.displayBooks();
 
