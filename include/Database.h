@@ -4,7 +4,10 @@
 #include <string>
 #include <vector>
 #include <pqxx/pqxx>
+
 #include "Book.h"
+#include "Member.h"
+#include "Transaction.h"
 
 using namespace std;
 
@@ -17,6 +20,7 @@ public:
 
     bool testConnection();
 
+    // Book operations
     void insertBook(
         int id,
         const string& title,
@@ -25,7 +29,27 @@ public:
     );
 
     vector<Book> getBooks();
-    void updateBookAvailability(int bookId, bool available);
+
+    void updateBookAvailability(
+        int bookId,
+        bool available
+    );
+
+    // Member operations
+    void insertMember(
+        int id,
+        const string& name,
+        const string& email
+    );
+
+    // Transaction operations
+    int insertTransaction(
+        int memberId,
+        int bookId,
+        TransactionType type
+    );
+
+    vector<Transaction> getTransactions();
 };
 
 #endif

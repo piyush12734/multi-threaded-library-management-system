@@ -3,8 +3,12 @@
 
 using namespace std;
 
-Library::Library(BookRepository& bookRepository)
-    : bookRepository(bookRepository) {
+Library::Library(
+    BookRepository& bookRepository,
+    TransactionRepository& transactionRepository
+)
+    : bookRepository(bookRepository),
+      transactionRepository(transactionRepository) {
 }
 
 void Library::addBook(const Book& book) {
@@ -33,7 +37,7 @@ bool Library::borrowBook(int memberId, int bookId) {
         return false;
     }
 
-    // Find the book in PostgreSQL
+    // Find the book from PostgreSQL
     Book book(
         0,
         "",
@@ -46,32 +50,39 @@ bool Library::borrowBook(int memberId, int bookId) {
         return false;
     }
 
-    // Check whether the book is available
+    // Check availability
     if (!book.isAvailable()) {
         cout << "Book is already borrowed." << endl;
         return false;
     }
 
-    // Change C++ object's state
-    book.borrow();
-
-    // IMPORTANT:
-    // Persist the new state in PostgreSQL
+    // Update book state in PostgreSQL
     bookRepository.updateAvailability(
         bookId,
         false
     );
 
-    // Create transaction
+    // Create transaction in PostgreSQL
     int transactionId =
-        transactions.size() + 1;
+        transactionRepository.add(
+            memberId,
+            bookId,
+            TransactionType::BORROW
+        );
 
-    transactions.emplace_back(
-        transactionId,
-        memberId,
-        bookId,
-        TransactionType::BORROW
-    );
+    if (transactionId == -1) {
+        cout << "Failed to create borrow transaction." << endl;
+
+        // Roll back book availability
+        bookRepository.updateAvailability(
+            bookId,
+            true
+        );
+
+        return false;
+    }
+
+    cout << "Book borrowed successfully." << endl;
 
     return true;
 }
@@ -94,7 +105,7 @@ bool Library::returnBook(int memberId, int bookId) {
         return false;
     }
 
-    // Find the book in PostgreSQL
+    // Find the book from PostgreSQL
     Book book(
         0,
         "",
@@ -107,32 +118,39 @@ bool Library::returnBook(int memberId, int bookId) {
         return false;
     }
 
-    // Check whether the book is already available
+    // Check availability
     if (book.isAvailable()) {
         cout << "Book is already available." << endl;
         return false;
     }
 
-    // Change C++ object's state
-    book.returnBook();
-
-    // IMPORTANT:
-    // Persist the new state in PostgreSQL
+    // Update book state in PostgreSQL
     bookRepository.updateAvailability(
         bookId,
         true
     );
 
-    // Create transaction
+    // Create transaction in PostgreSQL
     int transactionId =
-        transactions.size() + 1;
+        transactionRepository.add(
+            memberId,
+            bookId,
+            TransactionType::RETURN
+        );
 
-    transactions.emplace_back(
-        transactionId,
-        memberId,
-        bookId,
-        TransactionType::RETURN
-    );
+    if (transactionId == -1) {
+        cout << "Failed to create return transaction." << endl;
+
+        // Restore previous state
+        bookRepository.updateAvailability(
+            bookId,
+            false
+        );
+
+        return false;
+    }
+
+    cout << "Book returned successfully." << endl;
 
     return true;
 }
@@ -141,7 +159,6 @@ void Library::displayBooks() {
 
     cout << "\n--- Books ---\n";
 
-    // Read latest data from PostgreSQL
     vector<Book> books =
         bookRepository.getAll();
 
@@ -161,9 +178,12 @@ void Library::displayBooks() {
     }
 }
 
-void Library::displayTransactions() const {
+void Library::displayTransactions() {
 
     cout << "\n--- Transactions ---\n";
+
+    vector<Transaction> transactions =
+        transactionRepository.getAll();
 
     for (const Transaction& transaction :
          transactions) {

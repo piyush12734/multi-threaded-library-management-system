@@ -4,6 +4,7 @@
 #include "../include/Library.h"
 #include "../include/Database.h"
 #include "../include/BookRepository.h"
+#include "../include/TransactionRepository.h"
 #include <iostream>
 #include <string>
 #include <cstdlib>
@@ -42,12 +43,11 @@ int main() {
     // ---------------- Book Repository ----------------
 
     BookRepository bookRepository(database);
-
-
-    // ---------------- Library ----------------
-
-    Library library(bookRepository);
-
+    TransactionRepository transactionRepository(database);
+    Library library(
+        bookRepository,
+        transactionRepository
+    );
 
     // ---------------- Create Member ----------------
 
@@ -55,6 +55,11 @@ int main() {
         101,
         "Piyush",
         "piyush@gmail.com"
+    );
+    database.insertMember(
+    member.getId(),
+    member.getName(),
+    member.getEmail()
     );
 
 

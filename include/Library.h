@@ -1,25 +1,26 @@
 #ifndef LIBRARY_H
 #define LIBRARY_H
 
-#include <vector>
-
 #include "Book.h"
 #include "Member.h"
 #include "Transaction.h"
 #include "BookRepository.h"
+#include "TransactionRepository.h"
 
 using namespace std;
 
 class Library {
 private:
     BookRepository& bookRepository;
+    TransactionRepository& transactionRepository;
 
-    // These remain in memory for now.
     vector<Member> members;
-    vector<Transaction> transactions;
 
 public:
-    Library(BookRepository& bookRepository);
+    Library(
+        BookRepository& bookRepository,
+        TransactionRepository& transactionRepository
+    );
 
     void addBook(const Book& book);
     void addMember(const Member& member);
@@ -28,7 +29,7 @@ public:
     bool returnBook(int memberId, int bookId);
 
     void displayBooks();
-    void displayTransactions() const;
+    void displayTransactions();
 };
 
 #endif

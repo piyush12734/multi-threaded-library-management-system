@@ -29,6 +29,11 @@ bool Database::testConnection() {
     }
 }
 
+
+// ============================================================
+// BOOK OPERATIONS
+// ============================================================
+
 void Database::insertBook(
     int id,
     const string& title,
@@ -40,7 +45,8 @@ void Database::insertBook(
         pqxx::work transaction(connection);
 
         transaction.exec(
-            "INSERT INTO books (id, title, author, isbn, available) "
+            "INSERT INTO books "
+            "(id, title, author, isbn, available) "
             "VALUES ($1, $2, $3, $4, TRUE)",
             pqxx::params{
                 id,
@@ -63,6 +69,7 @@ void Database::insertBook(
     }
 }
 
+
 vector<Book> Database::getBooks() {
 
     vector<Book> books;
@@ -79,7 +86,8 @@ vector<Book> Database::getBooks() {
 
         for (const auto& row : result) {
 
-            int id = row["id"].as<int>();
+            int id =
+                row["id"].as<int>();
 
             string title =
                 row["title"].as<string>();
@@ -114,6 +122,7 @@ vector<Book> Database::getBooks() {
     return books;
 }
 
+
 void Database::updateBookAvailability(
     int bookId,
     bool available
@@ -143,4 +152,156 @@ void Database::updateBookAvailability(
              << e.what()
              << endl;
     }
+}
+
+
+// ============================================================
+// MEMBER OPERATIONS
+// ============================================================
+
+void Database::insertMember(
+    int id,
+    const string& name,
+    const string& email
+) {
+
+    try {
+        pqxx::work transaction(connection);
+
+        transaction.exec(
+            "INSERT INTO users "
+            "(id, name, email, role) "
+            "VALUES ($1, $2, $3, 'MEMBER')",
+            pqxx::params{
+                id,
+                name,
+                email
+            }
+        );
+
+        transaction.commit();
+
+        cout << "Member inserted into database successfully."
+             << endl;
+
+    } catch (const exception& e) {
+
+        cerr << "Failed to insert member: "
+             << e.what()
+             << endl;
+    }
+}
+
+
+// ============================================================
+// TRANSACTION OPERATIONS
+// ============================================================
+
+int Database::insertTransaction(
+    int memberId,
+    int bookId,
+    TransactionType type
+) {
+
+    try {
+        pqxx::work transaction(connection);
+
+        string transactionType;
+
+        if (type == TransactionType::BORROW) {
+            transactionType = "BORROW";
+        } else {
+            transactionType = "RETURN";
+        }
+
+        pqxx::result result =
+            transaction.exec(
+                "INSERT INTO transactions "
+                "(member_id, book_id, type) "
+                "VALUES ($1, $2, $3) "
+                "RETURNING id",
+                pqxx::params{
+                    memberId,
+                    bookId,
+                    transactionType
+                }
+            );
+
+        transaction.commit();
+
+        int transactionId =
+            result[0]["id"].as<int>();
+
+        cout << "Transaction inserted into database successfully."
+             << endl;
+
+        return transactionId;
+
+    } catch (const exception& e) {
+
+        cerr << "Failed to insert transaction: "
+             << e.what()
+             << endl;
+
+        return -1;
+    }
+}
+
+
+vector<Transaction> Database::getTransactions() {
+
+    vector<Transaction> transactions;
+
+    try {
+        pqxx::work transaction(connection);
+
+        pqxx::result result =
+            transaction.exec(
+                "SELECT id, member_id, book_id, type "
+                "FROM transactions "
+                "ORDER BY id"
+            );
+
+        for (const auto& row : result) {
+
+            int id =
+                row["id"].as<int>();
+
+            int memberId =
+                row["member_id"].as<int>();
+
+            int bookId =
+                row["book_id"].as<int>();
+
+            string type =
+                row["type"].as<string>();
+
+            TransactionType transactionType;
+
+            if (type == "BORROW") {
+                transactionType =
+                    TransactionType::BORROW;
+            } else {
+                transactionType =
+                    TransactionType::RETURN;
+            }
+
+            transactions.emplace_back(
+                id,
+                memberId,
+                bookId,
+                transactionType
+            );
+        }
+
+        transaction.commit();
+
+    } catch (const exception& e) {
+
+        cerr << "Failed to fetch transactions: "
+             << e.what()
+             << endl;
+    }
+
+    return transactions;
 }
