@@ -41,6 +41,8 @@ public:
         const string& name,
         const string& email
     );
+    vector<Member> getMembers();
+    bool memberExists(int id);
 
     // Transaction operations
     int insertTransaction(

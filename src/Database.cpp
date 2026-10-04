@@ -191,6 +191,81 @@ void Database::insertMember(
              << endl;
     }
 }
+vector<Member> Database::getMembers() {
+
+    vector<Member> members;
+
+    try {
+        pqxx::work transaction(connection);
+
+        pqxx::result result =
+            transaction.exec(
+                "SELECT id, name, email "
+                "FROM users "
+                "WHERE role = 'MEMBER' "
+                "ORDER BY id"
+            );
+
+        for (const auto& row : result) {
+
+            int id =
+                row["id"].as<int>();
+
+            string name =
+                row["name"].as<string>();
+
+            string email =
+                row["email"].as<string>();
+
+            members.emplace_back(
+                id,
+                name,
+                email
+            );
+        }
+
+        transaction.commit();
+
+    } catch (const exception& e) {
+
+        cerr << "Failed to fetch members: "
+             << e.what()
+             << endl;
+    }
+
+    return members;
+}
+
+bool Database::memberExists(int id) {
+
+    try {
+        pqxx::work transaction(connection);
+
+        pqxx::result result =
+            transaction.exec(
+                "SELECT 1 "
+                "FROM users "
+                "WHERE id = $1 "
+                "AND role = 'MEMBER' "
+                "LIMIT 1",
+                pqxx::params{
+                    id
+                }
+            );
+
+        transaction.commit();
+
+        return !result.empty();
+
+    } catch (const exception& e) {
+
+        cerr << "Failed to check member existence: "
+             << e.what()
+             << endl;
+
+        return false;
+    }
+}
 
 
 // ============================================================

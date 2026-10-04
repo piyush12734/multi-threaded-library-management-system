@@ -5,39 +5,40 @@ using namespace std;
 
 Library::Library(
     BookRepository& bookRepository,
-    TransactionRepository& transactionRepository
+    TransactionRepository& transactionRepository,
+    MemberRepository& memberRepository
 )
     : bookRepository(bookRepository),
-      transactionRepository(transactionRepository) {
+      transactionRepository(transactionRepository),
+      memberRepository(memberRepository) {
 }
 
 void Library::addBook(const Book& book) {
+
     bookRepository.add(book);
 }
 
 void Library::addMember(const Member& member) {
-    members.push_back(member);
+
+    if (memberRepository.exists(member.getId())) {
+
+        cout << "Member already exists." << endl;
+        return;
+    }
+
+    memberRepository.add(member);
 }
 
 bool Library::borrowBook(int memberId, int bookId) {
 
-    // Check whether the member exists
-    bool memberExists = false;
+    // Check member in PostgreSQL
+    if (!memberRepository.exists(memberId)) {
 
-    for (const Member& member : members) {
-
-        if (member.getId() == memberId) {
-            memberExists = true;
-            break;
-        }
-    }
-
-    if (!memberExists) {
         cout << "Member not found." << endl;
         return false;
     }
 
-    // Find the book from PostgreSQL
+    // Find book in PostgreSQL
     Book book(
         0,
         "",
@@ -46,17 +47,19 @@ bool Library::borrowBook(int memberId, int bookId) {
     );
 
     if (!bookRepository.findById(bookId, book)) {
+
         cout << "Book not found." << endl;
         return false;
     }
 
     // Check availability
     if (!book.isAvailable()) {
+
         cout << "Book is already borrowed." << endl;
         return false;
     }
 
-    // Update book state in PostgreSQL
+    // Update book in PostgreSQL
     bookRepository.updateAvailability(
         bookId,
         false
@@ -71,9 +74,11 @@ bool Library::borrowBook(int memberId, int bookId) {
         );
 
     if (transactionId == -1) {
-        cout << "Failed to create borrow transaction." << endl;
 
-        // Roll back book availability
+        cout << "Failed to create borrow transaction."
+             << endl;
+
+        // Restore book state
         bookRepository.updateAvailability(
             bookId,
             true
@@ -82,30 +87,22 @@ bool Library::borrowBook(int memberId, int bookId) {
         return false;
     }
 
-    cout << "Book borrowed successfully." << endl;
+    cout << "Book borrowed successfully."
+         << endl;
 
     return true;
 }
 
 bool Library::returnBook(int memberId, int bookId) {
 
-    // Check whether the member exists
-    bool memberExists = false;
+    // Check member in PostgreSQL
+    if (!memberRepository.exists(memberId)) {
 
-    for (const Member& member : members) {
-
-        if (member.getId() == memberId) {
-            memberExists = true;
-            break;
-        }
-    }
-
-    if (!memberExists) {
         cout << "Member not found." << endl;
         return false;
     }
 
-    // Find the book from PostgreSQL
+    // Find book in PostgreSQL
     Book book(
         0,
         "",
@@ -114,23 +111,27 @@ bool Library::returnBook(int memberId, int bookId) {
     );
 
     if (!bookRepository.findById(bookId, book)) {
+
         cout << "Book not found." << endl;
         return false;
     }
 
     // Check availability
     if (book.isAvailable()) {
-        cout << "Book is already available." << endl;
+
+        cout << "Book is already available."
+             << endl;
+
         return false;
     }
 
-    // Update book state in PostgreSQL
+    // Update book in PostgreSQL
     bookRepository.updateAvailability(
         bookId,
         true
     );
 
-    // Create transaction in PostgreSQL
+    // Create return transaction
     int transactionId =
         transactionRepository.add(
             memberId,
@@ -139,7 +140,9 @@ bool Library::returnBook(int memberId, int bookId) {
         );
 
     if (transactionId == -1) {
-        cout << "Failed to create return transaction." << endl;
+
+        cout << "Failed to create return transaction."
+             << endl;
 
         // Restore previous state
         bookRepository.updateAvailability(
@@ -150,7 +153,8 @@ bool Library::returnBook(int memberId, int bookId) {
         return false;
     }
 
-    cout << "Book returned successfully." << endl;
+    cout << "Book returned successfully."
+         << endl;
 
     return true;
 }
@@ -173,6 +177,23 @@ void Library::displayBooks() {
                      ? "Available"
                      : "Borrowed")
              << endl;
+
+        cout << endl;
+    }
+}
+
+void Library::displayMembers() {
+
+    cout << "\n--- Members ---\n";
+
+    vector<Member> members =
+        memberRepository.getAll();
+
+    for (const Member& member : members) {
+
+        cout << "ID: " << member.getId() << endl;
+        cout << "Name: " << member.getName() << endl;
+        cout << "Email: " << member.getEmail() << endl;
 
         cout << endl;
     }
