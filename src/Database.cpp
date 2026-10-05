@@ -380,3 +380,141 @@ vector<Transaction> Database::getTransactions() {
 
     return transactions;
 }
+bool Database::borrowBook(int memberId, int bookId) {
+
+    try {
+        // One database transaction for the entire operation
+        pqxx::work transaction(connection);
+
+        // 1. Check whether the member exists
+        pqxx::result memberResult =
+            transaction.exec(
+                "SELECT 1 "
+                "FROM users "
+                "WHERE id = $1 "
+                "AND role = 'MEMBER' "
+                "LIMIT 1",
+                pqxx::params{
+                    memberId
+                }
+            );
+
+        if (memberResult.empty()) {
+            cout << "Member not found." << endl;
+            return false;
+        }
+
+        // 2. Atomically change the book from Available to Borrowed
+        pqxx::result bookResult =
+            transaction.exec(
+                "UPDATE books "
+                "SET available = FALSE "
+                "WHERE id = $1 "
+                "AND available = TRUE "
+                "RETURNING id",
+                pqxx::params{
+                    bookId
+                }
+            );
+
+        // No row updated means:
+        // - book does not exist, OR
+        // - book is already borrowed
+        if (bookResult.empty()) {
+            cout << "Book is not available or does not exist."
+                 << endl;
+            return false;
+        }
+
+        // 3. Create the BORROW transaction
+        transaction.exec(
+            "INSERT INTO transactions "
+            "(member_id, book_id, type) "
+            "VALUES ($1, $2, 'BORROW')",
+            pqxx::params{
+                memberId,
+                bookId
+            }
+        );
+
+        // 4. Everything succeeded
+        transaction.commit();
+
+        return true;
+
+    } catch (const exception& e) {
+
+        cerr << "Atomic borrow failed: "
+             << e.what()
+             << endl;
+
+        return false;
+    }
+}
+bool Database::returnBook(int memberId, int bookId) {
+
+    try {
+        pqxx::work transaction(connection);
+
+        // 1. Check whether the member exists
+        pqxx::result memberResult =
+            transaction.exec(
+                "SELECT 1 "
+                "FROM users "
+                "WHERE id = $1 "
+                "AND role = 'MEMBER' "
+                "LIMIT 1",
+                pqxx::params{
+                    memberId
+                }
+            );
+
+        if (memberResult.empty()) {
+            cout << "Member not found." << endl;
+            return false;
+        }
+
+        // 2. Change the book from Borrowed to Available
+        pqxx::result bookResult =
+            transaction.exec(
+                "UPDATE books "
+                "SET available = TRUE "
+                "WHERE id = $1 "
+                "AND available = FALSE "
+                "RETURNING id",
+                pqxx::params{
+                    bookId
+                }
+            );
+
+        if (bookResult.empty()) {
+            cout << "Book is already available or does not exist."
+                 << endl;
+            return false;
+        }
+
+        // 3. Create the RETURN transaction
+        transaction.exec(
+            "INSERT INTO transactions "
+            "(member_id, book_id, type) "
+            "VALUES ($1, $2, 'RETURN')",
+            pqxx::params{
+                memberId,
+                bookId
+            }
+        );
+
+        // 4. Commit both operations together
+        transaction.commit();
+
+        return true;
+
+    } catch (const exception& e) {
+
+        cerr << "Atomic return failed: "
+             << e.what()
+             << endl;
+
+        return false;
+    }
+}

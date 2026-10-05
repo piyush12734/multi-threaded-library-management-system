@@ -29,134 +29,48 @@ void Library::addMember(const Member& member) {
     memberRepository.add(member);
 }
 
-bool Library::borrowBook(int memberId, int bookId) {
+bool Library::borrowBook(
+    int memberId,
+    int bookId
+) {
 
-    // Check member in PostgreSQL
-    if (!memberRepository.exists(memberId)) {
-
-        cout << "Member not found." << endl;
-        return false;
-    }
-
-    // Find book in PostgreSQL
-    Book book(
-        0,
-        "",
-        "",
-        ""
-    );
-
-    if (!bookRepository.findById(bookId, book)) {
-
-        cout << "Book not found." << endl;
-        return false;
-    }
-
-    // Check availability
-    if (!book.isAvailable()) {
-
-        cout << "Book is already borrowed." << endl;
-        return false;
-    }
-
-    // Update book in PostgreSQL
-    bookRepository.updateAvailability(
-        bookId,
-        false
-    );
-
-    // Create transaction in PostgreSQL
-    int transactionId =
-        transactionRepository.add(
+    bool success =
+        transactionRepository.borrowBook(
             memberId,
-            bookId,
-            TransactionType::BORROW
+            bookId
         );
 
-    if (transactionId == -1) {
+    if (success) {
 
-        cout << "Failed to create borrow transaction."
+        cout << "Book borrowed successfully."
              << endl;
 
-        // Restore book state
-        bookRepository.updateAvailability(
-            bookId,
-            true
-        );
-
-        return false;
+        return true;
     }
 
-    cout << "Book borrowed successfully."
-         << endl;
-
-    return true;
+    return false;
 }
 
-bool Library::returnBook(int memberId, int bookId) {
+bool Library::returnBook(
+    int memberId,
+    int bookId
+) {
 
-    // Check member in PostgreSQL
-    if (!memberRepository.exists(memberId)) {
-
-        cout << "Member not found." << endl;
-        return false;
-    }
-
-    // Find book in PostgreSQL
-    Book book(
-        0,
-        "",
-        "",
-        ""
-    );
-
-    if (!bookRepository.findById(bookId, book)) {
-
-        cout << "Book not found." << endl;
-        return false;
-    }
-
-    // Check availability
-    if (book.isAvailable()) {
-
-        cout << "Book is already available."
-             << endl;
-
-        return false;
-    }
-
-    // Update book in PostgreSQL
-    bookRepository.updateAvailability(
-        bookId,
-        true
-    );
-
-    // Create return transaction
-    int transactionId =
-        transactionRepository.add(
+    bool success =
+        transactionRepository.returnBook(
             memberId,
-            bookId,
-            TransactionType::RETURN
+            bookId
         );
 
-    if (transactionId == -1) {
+    if (success) {
 
-        cout << "Failed to create return transaction."
+        cout << "Book returned successfully."
              << endl;
 
-        // Restore previous state
-        bookRepository.updateAvailability(
-            bookId,
-            false
-        );
-
-        return false;
+        return true;
     }
 
-    cout << "Book returned successfully."
-         << endl;
-
-    return true;
+    return false;
 }
 
 void Library::displayBooks() {
@@ -168,9 +82,17 @@ void Library::displayBooks() {
 
     for (const Book& book : books) {
 
-        cout << "ID: " << book.getId() << endl;
-        cout << "Title: " << book.getTitle() << endl;
-        cout << "Author: " << book.getAuthor() << endl;
+        cout << "ID: "
+             << book.getId()
+             << endl;
+
+        cout << "Title: "
+             << book.getTitle()
+             << endl;
+
+        cout << "Author: "
+             << book.getAuthor()
+             << endl;
 
         cout << "Status: "
              << (book.isAvailable()
@@ -191,9 +113,17 @@ void Library::displayMembers() {
 
     for (const Member& member : members) {
 
-        cout << "ID: " << member.getId() << endl;
-        cout << "Name: " << member.getName() << endl;
-        cout << "Email: " << member.getEmail() << endl;
+        cout << "ID: "
+             << member.getId()
+             << endl;
+
+        cout << "Name: "
+             << member.getName()
+             << endl;
+
+        cout << "Email: "
+             << member.getEmail()
+             << endl;
 
         cout << endl;
     }

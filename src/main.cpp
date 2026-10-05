@@ -6,14 +6,33 @@
 #include "../include/BookRepository.h"
 #include "../include/TransactionRepository.h"
 #include "../include/MemberRepository.h"
+#include "../include/ThreadPool.h"
 
 #include <iostream>
 #include <string>
 #include <cstdlib>
+#include <chrono>
+#include <thread>
 
 using namespace std;
 
 int main() {
+
+    cout << "\n===== THREAD POOL TEST =====\n";
+
+ThreadPool pool(3);
+
+for (int i = 1; i <= 6; ++i) {
+
+    pool.enqueue([i]() {
+
+        cout << "Task "
+             << i
+             << " executed by thread "
+             << this_thread::get_id()
+             << endl;
+    });
+}
 
     // ---------------- Database Connection ----------------
 

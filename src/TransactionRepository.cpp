@@ -25,3 +25,25 @@ vector<Transaction> TransactionRepository::getAll() {
 
     return database.getTransactions();
 }
+
+bool TransactionRepository::borrowBook(
+    int memberId,
+    int bookId
+) {
+
+    return database.borrowBook(
+        memberId,
+        bookId
+    );
+}
+
+bool TransactionRepository::returnBook(
+    int memberId,
+    int bookId
+) {
+
+    return database.returnBook(
+        memberId,
+        bookId
+    );
+}

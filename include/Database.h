@@ -20,7 +20,8 @@ public:
 
     bool testConnection();
 
-    // Book operations
+    // ---------------- Book Operations ----------------
+
     void insertBook(
         int id,
         const string& title,
@@ -35,16 +36,20 @@ public:
         bool available
     );
 
-    // Member operations
+    // ---------------- Member Operations ----------------
+
     void insertMember(
         int id,
         const string& name,
         const string& email
     );
+
     vector<Member> getMembers();
+
     bool memberExists(int id);
 
-    // Transaction operations
+    // ---------------- Transaction Operations ----------------
+
     int insertTransaction(
         int memberId,
         int bookId,
@@ -52,6 +57,18 @@ public:
     );
 
     vector<Transaction> getTransactions();
+
+    // ---------------- Atomic Library Operations ----------------
+
+    bool borrowBook(
+        int memberId,
+        int bookId
+    );
+
+    bool returnBook(
+        int memberId,
+        int bookId
+    );
 };
 
 #endif

@@ -22,6 +22,16 @@ public:
     );
 
     vector<Transaction> getAll();
+
+    bool borrowBook(
+        int memberId,
+        int bookId
+    );
+
+    bool returnBook(
+        int memberId,
+        int bookId
+    );
 };
 
 #endif
