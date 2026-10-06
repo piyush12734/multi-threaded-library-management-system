@@ -9,6 +9,8 @@ Database::Database(const string& connectionString)
 
 bool Database::testConnection() {
 
+    lock_guard<mutex> lock(connectionMutex);
+
     try {
         pqxx::work transaction(connection);
 
@@ -17,7 +19,8 @@ bool Database::testConnection() {
 
         transaction.commit();
 
-        return !result.empty() && result[0][0].as<int>() == 1;
+        return !result.empty() &&
+               result[0][0].as<int>() == 1;
 
     } catch (const exception& e) {
 
@@ -40,6 +43,8 @@ void Database::insertBook(
     const string& author,
     const string& isbn
 ) {
+
+    lock_guard<mutex> lock(connectionMutex);
 
     try {
         pqxx::work transaction(connection);
@@ -71,6 +76,8 @@ void Database::insertBook(
 
 
 vector<Book> Database::getBooks() {
+
+    lock_guard<mutex> lock(connectionMutex);
 
     vector<Book> books;
 
@@ -128,6 +135,8 @@ void Database::updateBookAvailability(
     bool available
 ) {
 
+    lock_guard<mutex> lock(connectionMutex);
+
     try {
         pqxx::work transaction(connection);
 
@@ -165,6 +174,8 @@ void Database::insertMember(
     const string& email
 ) {
 
+    lock_guard<mutex> lock(connectionMutex);
+
     try {
         pqxx::work transaction(connection);
 
@@ -191,7 +202,11 @@ void Database::insertMember(
              << endl;
     }
 }
+
+
 vector<Member> Database::getMembers() {
+
+    lock_guard<mutex> lock(connectionMutex);
 
     vector<Member> members;
 
@@ -236,7 +251,10 @@ vector<Member> Database::getMembers() {
     return members;
 }
 
+
 bool Database::memberExists(int id) {
+
+    lock_guard<mutex> lock(connectionMutex);
 
     try {
         pqxx::work transaction(connection);
@@ -278,6 +296,8 @@ int Database::insertTransaction(
     TransactionType type
 ) {
 
+    lock_guard<mutex> lock(connectionMutex);
+
     try {
         pqxx::work transaction(connection);
 
@@ -304,13 +324,7 @@ int Database::insertTransaction(
 
         transaction.commit();
 
-        int transactionId =
-            result[0]["id"].as<int>();
-
-        cout << "Transaction inserted into database successfully."
-             << endl;
-
-        return transactionId;
+        return result[0]["id"].as<int>();
 
     } catch (const exception& e) {
 
@@ -324,6 +338,8 @@ int Database::insertTransaction(
 
 
 vector<Transaction> Database::getTransactions() {
+
+    lock_guard<mutex> lock(connectionMutex);
 
     vector<Transaction> transactions;
 
@@ -380,13 +396,25 @@ vector<Transaction> Database::getTransactions() {
 
     return transactions;
 }
-bool Database::borrowBook(int memberId, int bookId) {
+
+
+// ============================================================
+// ATOMIC BORROW
+// ============================================================
+
+bool Database::borrowBook(
+    int memberId,
+    int bookId
+) {
+
+    // Keep the connection locked for the
+    // ENTIRE PostgreSQL transaction.
+    lock_guard<mutex> lock(connectionMutex);
 
     try {
-        // One database transaction for the entire operation
         pqxx::work transaction(connection);
 
-        // 1. Check whether the member exists
+        // 1. Check member
         pqxx::result memberResult =
             transaction.exec(
                 "SELECT 1 "
@@ -400,11 +428,14 @@ bool Database::borrowBook(int memberId, int bookId) {
             );
 
         if (memberResult.empty()) {
-            cout << "Member not found." << endl;
+
+            cout << "Member not found."
+                 << endl;
+
             return false;
         }
 
-        // 2. Atomically change the book from Available to Borrowed
+        // 2. Try to change Available → Borrowed
         pqxx::result bookResult =
             transaction.exec(
                 "UPDATE books "
@@ -417,16 +448,15 @@ bool Database::borrowBook(int memberId, int bookId) {
                 }
             );
 
-        // No row updated means:
-        // - book does not exist, OR
-        // - book is already borrowed
         if (bookResult.empty()) {
+
             cout << "Book is not available or does not exist."
                  << endl;
+
             return false;
         }
 
-        // 3. Create the BORROW transaction
+        // 3. Create BORROW transaction
         transaction.exec(
             "INSERT INTO transactions "
             "(member_id, book_id, type) "
@@ -437,7 +467,7 @@ bool Database::borrowBook(int memberId, int bookId) {
             }
         );
 
-        // 4. Everything succeeded
+        // 4. Commit everything together
         transaction.commit();
 
         return true;
@@ -451,12 +481,23 @@ bool Database::borrowBook(int memberId, int bookId) {
         return false;
     }
 }
-bool Database::returnBook(int memberId, int bookId) {
+
+
+// ============================================================
+// ATOMIC RETURN
+// ============================================================
+
+bool Database::returnBook(
+    int memberId,
+    int bookId
+) {
+
+    lock_guard<mutex> lock(connectionMutex);
 
     try {
         pqxx::work transaction(connection);
 
-        // 1. Check whether the member exists
+        // 1. Check member
         pqxx::result memberResult =
             transaction.exec(
                 "SELECT 1 "
@@ -470,11 +511,14 @@ bool Database::returnBook(int memberId, int bookId) {
             );
 
         if (memberResult.empty()) {
-            cout << "Member not found." << endl;
+
+            cout << "Member not found."
+                 << endl;
+
             return false;
         }
 
-        // 2. Change the book from Borrowed to Available
+        // 2. Try to change Borrowed → Available
         pqxx::result bookResult =
             transaction.exec(
                 "UPDATE books "
@@ -488,12 +532,14 @@ bool Database::returnBook(int memberId, int bookId) {
             );
 
         if (bookResult.empty()) {
+
             cout << "Book is already available or does not exist."
                  << endl;
+
             return false;
         }
 
-        // 3. Create the RETURN transaction
+        // 3. Create RETURN transaction
         transaction.exec(
             "INSERT INTO transactions "
             "(member_id, book_id, type) "
@@ -504,7 +550,7 @@ bool Database::returnBook(int memberId, int bookId) {
             }
         );
 
-        // 4. Commit both operations together
+        // 4. Commit everything together
         transaction.commit();
 
         return true;

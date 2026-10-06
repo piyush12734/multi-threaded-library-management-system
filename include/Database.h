@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <mutex>
 #include <pqxx/pqxx>
 
 #include "Book.h"
@@ -14,6 +15,9 @@ using namespace std;
 class Database {
 private:
     pqxx::connection connection;
+
+    // Protects the shared PostgreSQL connection
+    mutex connectionMutex;
 
 public:
     Database(const string& connectionString);

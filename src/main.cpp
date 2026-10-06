@@ -7,39 +7,56 @@
 #include "../include/TransactionRepository.h"
 #include "../include/MemberRepository.h"
 #include "../include/ThreadPool.h"
+#include "../include/Logger.h"
 
 #include <iostream>
 #include <string>
 #include <cstdlib>
-#include <chrono>
+#include <sstream>
 #include <thread>
 
 using namespace std;
 
 int main() {
 
+    // ============================================================
+    // THREAD POOL TEST
+    // ============================================================
+
+    {
     cout << "\n===== THREAD POOL TEST =====\n";
 
-ThreadPool pool(3);
+    Logger logger;
+    ThreadPool pool(3);
 
-for (int i = 1; i <= 6; ++i) {
+    for (int i = 1; i <= 6; ++i) {
 
-    pool.enqueue([i]() {
+        pool.enqueue([i, &logger]() {
 
-        cout << "Task "
-             << i
-             << " executed by thread "
-             << this_thread::get_id()
-             << endl;
-    });
+            stringstream message;
+
+            message << "Task "
+                    << i
+                    << " executed by thread "
+                    << this_thread::get_id();
+
+            logger.log(message.str());
+        });
+    }
 }
 
-    // ---------------- Database Connection ----------------
+    // ============================================================
+    // DATABASE CONNECTION
+    // ============================================================
 
-    const char* password = getenv("LIBRARY_DB_PASSWORD");
+    const char* password =
+        getenv("LIBRARY_DB_PASSWORD");
 
     if (password == nullptr) {
-        cerr << "LIBRARY_DB_PASSWORD is not set." << endl;
+
+        cerr << "LIBRARY_DB_PASSWORD is not set."
+             << endl;
+
         return 1;
     }
 
@@ -53,14 +70,22 @@ for (int i = 1; i <= 6; ++i) {
     Database database(connectionString);
 
     if (database.testConnection()) {
-        cout << "Database connection successful!" << endl;
+
+        cout << "\nDatabase connection successful!"
+             << endl;
+
     } else {
-        cout << "Database connection failed!" << endl;
+
+        cout << "\nDatabase connection failed!"
+             << endl;
+
         return 1;
     }
 
 
-    // ---------------- Repositories ----------------
+    // ============================================================
+    // REPOSITORIES
+    // ============================================================
 
     BookRepository bookRepository(database);
 
@@ -69,7 +94,9 @@ for (int i = 1; i <= 6; ++i) {
     MemberRepository memberRepository(database);
 
 
-    // ---------------- Library ----------------
+    // ============================================================
+    // LIBRARY
+    // ============================================================
 
     Library library(
         bookRepository,
@@ -78,7 +105,9 @@ for (int i = 1; i <= 6; ++i) {
     );
 
 
-    // ---------------- Create Member ----------------
+    // ============================================================
+    // CREATE MEMBER
+    // ============================================================
 
     Member member(
         101,
@@ -87,12 +116,69 @@ for (int i = 1; i <= 6; ++i) {
     );
 
 
-    // ---------------- Add Member ----------------
+    // ============================================================
+    // ADD MEMBER
+    // ============================================================
 
     library.addMember(member);
 
 
-    // ---------------- Create Admin ----------------
+    // ============================================================
+// CONCURRENT BORROW TEST
+// ============================================================
+
+cout << "\n===== CONCURRENT BORROW TEST =====\n";
+
+Logger logger;
+
+{
+    ThreadPool pool(2);
+
+    pool.enqueue([&library, &logger]() {
+
+        bool success =
+            library.borrowBook(101, 1);
+
+        stringstream message;
+
+        message << "Thread "
+                << this_thread::get_id()
+                << " borrow result: "
+                << (success ? "SUCCESS" : "FAILED");
+
+        logger.log(message.str());
+    });
+
+    
+
+    pool.enqueue([&library, &logger]() {
+
+        bool success =
+            library.borrowBook(101, 1);
+
+        stringstream message;
+
+        message << "Thread "
+                << this_thread::get_id()
+                << " borrow result: "
+                << (success ? "SUCCESS" : "FAILED");
+
+        logger.log(message.str());
+    });
+}
+
+cout << "\n===== BOOK AFTER CONCURRENT BORROW =====\n";
+
+library.displayBooks();
+
+cout << "\n===== RETURN BOOK =====\n";
+
+library.returnBook(101, 1);
+
+
+    // ============================================================
+    // CREATE ADMIN
+    // ============================================================
 
     Admin admin(
         1,
@@ -101,61 +187,79 @@ for (int i = 1; i <= 6; ++i) {
     );
 
 
-    // ---------------- Display Books ----------------
+    // ============================================================
+    // DISPLAY BOOKS
+    // ============================================================
 
     cout << "\n===== BOOKS FROM DATABASE =====\n";
 
     library.displayBooks();
 
 
-    // ---------------- Display Members ----------------
+    // ============================================================
+    // DISPLAY MEMBERS
+    // ============================================================
 
     cout << "\n===== MEMBERS FROM DATABASE =====\n";
 
     library.displayMembers();
 
 
-    // ---------------- Borrow Book ----------------
+    // ============================================================
+    // BORROW BOOK
+    // ============================================================
 
     cout << "\n===== BORROW BOOK =====\n";
 
     library.borrowBook(101, 1);
 
 
-    // ---------------- Display After Borrow ----------------
+    // ============================================================
+    // DISPLAY BOOKS AFTER BORROW
+    // ============================================================
 
     cout << "\n===== BOOKS AFTER BORROW =====\n";
 
     library.displayBooks();
 
 
-    // ---------------- Try Borrowing Same Book ----------------
+    // ============================================================
+    // TRY TO BORROW SAME BOOK AGAIN
+    // ============================================================
 
     cout << "===== BORROW SAME BOOK AGAIN =====\n";
 
     library.borrowBook(101, 1);
 
 
-    // ---------------- Return Book ----------------
+    // ============================================================
+    // RETURN BOOK
+    // ============================================================
 
     cout << "\n===== RETURN BOOK =====\n";
 
     library.returnBook(101, 1);
 
 
-    // ---------------- Display After Return ----------------
+    // ============================================================
+    // DISPLAY BOOKS AFTER RETURN
+    // ============================================================
 
     cout << "\n===== BOOKS AFTER RETURN =====\n";
 
     library.displayBooks();
 
 
-    // ---------------- Display Transactions ----------------
+    // ============================================================
+    // DISPLAY TRANSACTIONS
+    // ============================================================
 
     library.displayTransactions();
 
 
-    // ---------------- Runtime Polymorphism ----------------
+    // ============================================================
+    // RUNTIME POLYMORPHISM
+    // ============================================================
 
     cout << "===== RUNTIME POLYMORPHISM =====\n";
 
