@@ -3,16 +3,25 @@
 
 using namespace std;
 
+// ============================================================
+// CONSTRUCTOR
+// ============================================================
+
 Database::Database(const string& connectionString)
-    : connection(connectionString) {
+    : connectionPool(connectionString, 4) {
 }
+
+
+// ============================================================
+// TEST CONNECTION
+// ============================================================
 
 bool Database::testConnection() {
 
-    lock_guard<mutex> lock(connectionMutex);
-
     try {
-        pqxx::work transaction(connection);
+        auto lease = connectionPool.acquire();
+
+        pqxx::work transaction(lease.get());
 
         pqxx::result result =
             transaction.exec("SELECT 1");
@@ -44,10 +53,10 @@ void Database::insertBook(
     const string& isbn
 ) {
 
-    lock_guard<mutex> lock(connectionMutex);
-
     try {
-        pqxx::work transaction(connection);
+        auto lease = connectionPool.acquire();
+
+        pqxx::work transaction(lease.get());
 
         transaction.exec(
             "INSERT INTO books "
@@ -77,12 +86,12 @@ void Database::insertBook(
 
 vector<Book> Database::getBooks() {
 
-    lock_guard<mutex> lock(connectionMutex);
-
     vector<Book> books;
 
     try {
-        pqxx::work transaction(connection);
+        auto lease = connectionPool.acquire();
+
+        pqxx::work transaction(lease.get());
 
         pqxx::result result =
             transaction.exec(
@@ -135,10 +144,10 @@ void Database::updateBookAvailability(
     bool available
 ) {
 
-    lock_guard<mutex> lock(connectionMutex);
-
     try {
-        pqxx::work transaction(connection);
+        auto lease = connectionPool.acquire();
+
+        pqxx::work transaction(lease.get());
 
         transaction.exec(
             "UPDATE books "
@@ -174,10 +183,10 @@ void Database::insertMember(
     const string& email
 ) {
 
-    lock_guard<mutex> lock(connectionMutex);
-
     try {
-        pqxx::work transaction(connection);
+        auto lease = connectionPool.acquire();
+
+        pqxx::work transaction(lease.get());
 
         transaction.exec(
             "INSERT INTO users "
@@ -206,12 +215,12 @@ void Database::insertMember(
 
 vector<Member> Database::getMembers() {
 
-    lock_guard<mutex> lock(connectionMutex);
-
     vector<Member> members;
 
     try {
-        pqxx::work transaction(connection);
+        auto lease = connectionPool.acquire();
+
+        pqxx::work transaction(lease.get());
 
         pqxx::result result =
             transaction.exec(
@@ -254,10 +263,10 @@ vector<Member> Database::getMembers() {
 
 bool Database::memberExists(int id) {
 
-    lock_guard<mutex> lock(connectionMutex);
-
     try {
-        pqxx::work transaction(connection);
+        auto lease = connectionPool.acquire();
+
+        pqxx::work transaction(lease.get());
 
         pqxx::result result =
             transaction.exec(
@@ -296,18 +305,15 @@ int Database::insertTransaction(
     TransactionType type
 ) {
 
-    lock_guard<mutex> lock(connectionMutex);
-
     try {
-        pqxx::work transaction(connection);
+        auto lease = connectionPool.acquire();
 
-        string transactionType;
+        pqxx::work transaction(lease.get());
 
-        if (type == TransactionType::BORROW) {
-            transactionType = "BORROW";
-        } else {
-            transactionType = "RETURN";
-        }
+        string transactionType =
+            (type == TransactionType::BORROW)
+                ? "BORROW"
+                : "RETURN";
 
         pqxx::result result =
             transaction.exec(
@@ -322,9 +328,15 @@ int Database::insertTransaction(
                 }
             );
 
+        int transactionId =
+            result[0]["id"].as<int>();
+
         transaction.commit();
 
-        return result[0]["id"].as<int>();
+        cout << "Transaction inserted into database successfully."
+             << endl;
+
+        return transactionId;
 
     } catch (const exception& e) {
 
@@ -339,12 +351,12 @@ int Database::insertTransaction(
 
 vector<Transaction> Database::getTransactions() {
 
-    lock_guard<mutex> lock(connectionMutex);
-
     vector<Transaction> transactions;
 
     try {
-        pqxx::work transaction(connection);
+        auto lease = connectionPool.acquire();
+
+        pqxx::work transaction(lease.get());
 
         pqxx::result result =
             transaction.exec(
@@ -367,15 +379,10 @@ vector<Transaction> Database::getTransactions() {
             string type =
                 row["type"].as<string>();
 
-            TransactionType transactionType;
-
-            if (type == "BORROW") {
-                transactionType =
-                    TransactionType::BORROW;
-            } else {
-                transactionType =
-                    TransactionType::RETURN;
-            }
+            TransactionType transactionType =
+                (type == "BORROW")
+                    ? TransactionType::BORROW
+                    : TransactionType::RETURN;
 
             transactions.emplace_back(
                 id,
@@ -399,7 +406,7 @@ vector<Transaction> Database::getTransactions() {
 
 
 // ============================================================
-// ATOMIC BORROW
+// ATOMIC BORROW OPERATION
 // ============================================================
 
 bool Database::borrowBook(
@@ -407,14 +414,13 @@ bool Database::borrowBook(
     int bookId
 ) {
 
-    // Keep the connection locked for the
-    // ENTIRE PostgreSQL transaction.
-    lock_guard<mutex> lock(connectionMutex);
-
     try {
-        pqxx::work transaction(connection);
+        auto lease = connectionPool.acquire();
 
-        // 1. Check member
+        // All operations use this one leased connection.
+        pqxx::work transaction(lease.get());
+
+        // 1. Verify that the member exists.
         pqxx::result memberResult =
             transaction.exec(
                 "SELECT 1 "
@@ -435,7 +441,7 @@ bool Database::borrowBook(
             return false;
         }
 
-        // 2. Try to change Available → Borrowed
+        // 2. Claim the book only if it is available.
         pqxx::result bookResult =
             transaction.exec(
                 "UPDATE books "
@@ -456,7 +462,7 @@ bool Database::borrowBook(
             return false;
         }
 
-        // 3. Create BORROW transaction
+        // 3. Record the borrow.
         transaction.exec(
             "INSERT INTO transactions "
             "(member_id, book_id, type) "
@@ -467,7 +473,7 @@ bool Database::borrowBook(
             }
         );
 
-        // 4. Commit everything together
+        // 4. Commit the update and transaction together.
         transaction.commit();
 
         return true;
@@ -484,7 +490,7 @@ bool Database::borrowBook(
 
 
 // ============================================================
-// ATOMIC RETURN
+// ATOMIC RETURN OPERATION
 // ============================================================
 
 bool Database::returnBook(
@@ -492,12 +498,12 @@ bool Database::returnBook(
     int bookId
 ) {
 
-    lock_guard<mutex> lock(connectionMutex);
-
     try {
-        pqxx::work transaction(connection);
+        auto lease = connectionPool.acquire();
 
-        // 1. Check member
+        pqxx::work transaction(lease.get());
+
+        // 1. Verify that the member exists.
         pqxx::result memberResult =
             transaction.exec(
                 "SELECT 1 "
@@ -518,7 +524,7 @@ bool Database::returnBook(
             return false;
         }
 
-        // 2. Try to change Borrowed → Available
+        // 2. Return only a currently borrowed book.
         pqxx::result bookResult =
             transaction.exec(
                 "UPDATE books "
@@ -539,7 +545,7 @@ bool Database::returnBook(
             return false;
         }
 
-        // 3. Create RETURN transaction
+        // 3. Record the return.
         transaction.exec(
             "INSERT INTO transactions "
             "(member_id, book_id, type) "
@@ -550,7 +556,7 @@ bool Database::returnBook(
             }
         );
 
-        // 4. Commit everything together
+        // 4. Commit both changes together.
         transaction.commit();
 
         return true;

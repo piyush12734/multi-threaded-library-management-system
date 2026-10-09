@@ -3,23 +3,21 @@
 
 #include <string>
 #include <vector>
-#include <mutex>
-#include <pqxx/pqxx>
 
 #include "Book.h"
 #include "Member.h"
 #include "Transaction.h"
+#include "ConnectionPool.h"
 
 using namespace std;
 
 class Database {
 private:
-    pqxx::connection connection;
-
-    // Protects the shared PostgreSQL connection
-    mutex connectionMutex;
+    // Manages multiple PostgreSQL connections.
+    ConnectionPool connectionPool;
 
 public:
+    // Creates the database connection pool.
     Database(const string& connectionString);
 
     bool testConnection();
