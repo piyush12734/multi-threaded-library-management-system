@@ -33,44 +33,20 @@ bool Library::borrowBook(
     int memberId,
     int bookId
 ) {
-
-    bool success =
-        transactionRepository.borrowBook(
-            memberId,
-            bookId
-        );
-
-    if (success) {
-
-        cout << "Book borrowed successfully."
-             << endl;
-
-        return true;
-    }
-
-    return false;
+    return transactionRepository.borrowBook(
+        memberId,
+        bookId
+    );
 }
 
 bool Library::returnBook(
     int memberId,
     int bookId
 ) {
-
-    bool success =
-        transactionRepository.returnBook(
-            memberId,
-            bookId
-        );
-
-    if (success) {
-
-        cout << "Book returned successfully."
-             << endl;
-
-        return true;
-    }
-
-    return false;
+    return transactionRepository.returnBook(
+        memberId,
+        bookId
+    );
 }
 
 void Library::displayBooks() {

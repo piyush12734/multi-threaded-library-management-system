@@ -9,6 +9,7 @@
 #include "../include/ThreadPool.h"
 #include "../include/Logger.h"
 
+#include <atomic>
 #include <iostream>
 #include <string>
 #include <cstdlib>
@@ -24,26 +25,27 @@ int main() {
     // ============================================================
 
     {
-    cout << "\n===== THREAD POOL TEST =====\n";
+        cout << "\n===== THREAD POOL TEST =====\n";
 
-    Logger logger;
-    ThreadPool pool(3);
+        Logger logger;
+        ThreadPool pool(3);
 
-    for (int i = 1; i <= 6; ++i) {
+        for (int i = 1; i <= 6; ++i) {
 
-        pool.enqueue([i, &logger]() {
+            pool.enqueue([i, &logger]() {
 
-            stringstream message;
+                stringstream message;
 
-            message << "Task "
-                    << i
-                    << " executed by thread "
-                    << this_thread::get_id();
+                message << "Task "
+                        << i
+                        << " executed by thread "
+                        << this_thread::get_id();
 
-            logger.log(message.str());
-        });
+                logger.log(message.str());
+            });
+        }
     }
-}
+
 
     // ============================================================
     // DATABASE CONNECTION
@@ -53,10 +55,8 @@ int main() {
         getenv("LIBRARY_DB_PASSWORD");
 
     if (password == nullptr) {
-
         cerr << "LIBRARY_DB_PASSWORD is not set."
              << endl;
-
         return 1;
     }
 
@@ -70,15 +70,11 @@ int main() {
     Database database(connectionString);
 
     if (database.testConnection()) {
-
         cout << "\nDatabase connection successful!"
              << endl;
-
     } else {
-
         cout << "\nDatabase connection failed!"
              << endl;
-
         return 1;
     }
 
@@ -106,7 +102,7 @@ int main() {
 
 
     // ============================================================
-    // CREATE MEMBER
+    // CREATE AND ADD MEMBER
     // ============================================================
 
     Member member(
@@ -115,65 +111,87 @@ int main() {
         "piyush@gmail.com"
     );
 
-
-    // ============================================================
-    // ADD MEMBER
-    // ============================================================
-
     library.addMember(member);
 
 
     // ============================================================
-// CONCURRENT BORROW TEST
-// ============================================================
+    // DAY 14: CONCURRENT BORROW STRESS TEST
+    // ============================================================
 
-cout << "\n===== CONCURRENT BORROW TEST =====\n";
+    cout << "\n===== CONCURRENT BORROW STRESS TEST =====\n";
 
-Logger logger;
+    constexpr int requestCount = 10;
 
-{
-    ThreadPool pool(2);
+    atomic<int> successfulBorrows{0};
 
-    pool.enqueue([&library, &logger]() {
+    Logger borrowLogger;
 
-        bool success =
-            library.borrowBook(101, 1);
+    {
+        // Eight worker threads and four database connections.
+        ThreadPool pool(8);
 
-        stringstream message;
+        for (int request = 1;
+             request <= requestCount;
+             ++request) {
 
-        message << "Thread "
-                << this_thread::get_id()
-                << " borrow result: "
-                << (success ? "SUCCESS" : "FAILED");
+            pool.enqueue([
+                request,
+                &library,
+                &borrowLogger,
+                &successfulBorrows
+            ]() {
 
-        logger.log(message.str());
-    });
+                bool success =
+                    library.borrowBook(101, 1);
 
-    
+                if (success) {
+                    successfulBorrows.fetch_add(1);
+                }
 
-    pool.enqueue([&library, &logger]() {
+                stringstream message;
 
-        bool success =
-            library.borrowBook(101, 1);
+                message << "Request " << request
+                        << " | Thread "
+                        << this_thread::get_id()
+                        << " | Result: "
+                        << (success ? "SUCCESS" : "FAILED");
 
-        stringstream message;
+                borrowLogger.log(message.str());
+            });
+        }
 
-        message << "Thread "
-                << this_thread::get_id()
-                << " borrow result: "
-                << (success ? "SUCCESS" : "FAILED");
+        // The pool destructor waits for all tasks to finish.
+    }
 
-        logger.log(message.str());
-    });
-}
+    cout << "\nSuccessful borrows: "
+         << successfulBorrows.load()
+         << " / "
+         << requestCount
+         << endl;
 
-cout << "\n===== BOOK AFTER CONCURRENT BORROW =====\n";
 
-library.displayBooks();
+    // ============================================================
+    // VERIFY BOOK AFTER STRESS TEST
+    // ============================================================
 
-cout << "\n===== RETURN BOOK =====\n";
+    cout << "\n===== BOOK AFTER STRESS TEST =====\n";
 
-library.returnBook(101, 1);
+    library.displayBooks();
+
+
+    // Return Book 1 so the subsequent demonstration can run.
+    // This assumes Book 1 was available before the stress test.
+    cout << "\n===== RETURN BOOK AFTER STRESS TEST =====\n";
+
+
+    if (successfulBorrows.load() > 0) {
+    bool returned = library.returnBook(101, 1);
+
+    cout << (returned
+        ? "Book returned after stress test."
+        : "Failed to return book after stress test.")
+        << endl;
+    }
 
 
     // ============================================================
@@ -206,12 +224,17 @@ library.returnBook(101, 1);
 
 
     // ============================================================
-    // BORROW BOOK
+    // NORMAL BORROW TEST
     // ============================================================
 
     cout << "\n===== BORROW BOOK =====\n";
 
-    library.borrowBook(101, 1);
+    bool borrowed = library.borrowBook(101, 1);
+    
+    cout << (borrowed
+    ? "Book borrowed successfully."
+    : "Borrow failed: book unavailable or invalid member.")
+    << endl;
 
 
     // ============================================================
@@ -224,12 +247,18 @@ library.returnBook(101, 1);
 
 
     // ============================================================
-    // TRY TO BORROW SAME BOOK AGAIN
+    // TRY TO BORROW THE SAME BOOK AGAIN
     // ============================================================
 
-    cout << "===== BORROW SAME BOOK AGAIN =====\n";
+    cout << "\n===== BORROW SAME BOOK AGAIN =====\n";
 
-    library.borrowBook(101, 1);
+
+    bool borrowedAgain = library.borrowBook(101, 1);
+
+    cout << (borrowedAgain
+    ? "Book borrowed successfully."
+    : "Second borrow correctly rejected.")
+    << endl;
 
 
     // ============================================================
@@ -238,7 +267,12 @@ library.returnBook(101, 1);
 
     cout << "\n===== RETURN BOOK =====\n";
 
-    library.returnBook(101, 1);
+    bool returned = library.returnBook(101, 1);
+
+    cout << (returned
+    ? "Book returned successfully."
+    : "Return failed: book unavailable or invalid member.")
+    << endl;
 
 
     // ============================================================

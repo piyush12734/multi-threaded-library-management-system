@@ -433,13 +433,9 @@ bool Database::borrowBook(
                 }
             );
 
-        if (memberResult.empty()) {
-
-            cout << "Member not found."
-                 << endl;
-
-            return false;
-        }
+            if (memberResult.empty()) {
+                return false;
+            }
 
         // 2. Claim the book only if it is available.
         pqxx::result bookResult =
@@ -454,13 +450,9 @@ bool Database::borrowBook(
                 }
             );
 
-        if (bookResult.empty()) {
-
-            cout << "Book is not available or does not exist."
-                 << endl;
-
-            return false;
-        }
+            if (bookResult.empty()) {
+                return false;
+            }
 
         // 3. Record the borrow.
         transaction.exec(
@@ -516,13 +508,9 @@ bool Database::returnBook(
                 }
             );
 
-        if (memberResult.empty()) {
-
-            cout << "Member not found."
-                 << endl;
-
-            return false;
-        }
+            if (memberResult.empty()) {
+                return false;
+            }
 
         // 2. Return only a currently borrowed book.
         pqxx::result bookResult =
@@ -537,13 +525,9 @@ bool Database::returnBook(
                 }
             );
 
-        if (bookResult.empty()) {
-
-            cout << "Book is already available or does not exist."
-                 << endl;
-
-            return false;
-        }
+            if (bookResult.empty()) {
+                return false;
+            }
 
         // 3. Record the return.
         transaction.exec(
