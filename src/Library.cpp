@@ -14,14 +14,12 @@ Library::Library(
 }
 
 void Library::addBook(const Book& book) {
-
     bookRepository.add(book);
 }
 
 void Library::addMember(const Member& member) {
 
     if (memberRepository.exists(member.getId())) {
-
         cout << "Member already exists." << endl;
         return;
     }
@@ -29,7 +27,7 @@ void Library::addMember(const Member& member) {
     memberRepository.add(member);
 }
 
-bool Library::borrowBook(
+OperationResult Library::borrowBook(
     int memberId,
     int bookId
 ) {
@@ -39,7 +37,7 @@ bool Library::borrowBook(
     );
 }
 
-bool Library::returnBook(
+OperationResult Library::returnBook(
     int memberId,
     int bookId
 ) {
@@ -53,27 +51,16 @@ void Library::displayBooks() {
 
     cout << "\n--- Books ---\n";
 
-    vector<Book> books =
-        bookRepository.getAll();
+    vector<Book> books = bookRepository.getAll();
 
     for (const Book& book : books) {
 
-        cout << "ID: "
-             << book.getId()
-             << endl;
-
-        cout << "Title: "
-             << book.getTitle()
-             << endl;
-
-        cout << "Author: "
-             << book.getAuthor()
-             << endl;
+        cout << "ID: " << book.getId() << endl;
+        cout << "Title: " << book.getTitle() << endl;
+        cout << "Author: " << book.getAuthor() << endl;
 
         cout << "Status: "
-             << (book.isAvailable()
-                     ? "Available"
-                     : "Borrowed")
+             << (book.isAvailable() ? "Available" : "Borrowed")
              << endl;
 
         cout << endl;
@@ -84,22 +71,13 @@ void Library::displayMembers() {
 
     cout << "\n--- Members ---\n";
 
-    vector<Member> members =
-        memberRepository.getAll();
+    vector<Member> members = memberRepository.getAll();
 
     for (const Member& member : members) {
 
-        cout << "ID: "
-             << member.getId()
-             << endl;
-
-        cout << "Name: "
-             << member.getName()
-             << endl;
-
-        cout << "Email: "
-             << member.getEmail()
-             << endl;
+        cout << "ID: " << member.getId() << endl;
+        cout << "Name: " << member.getName() << endl;
+        cout << "Email: " << member.getEmail() << endl;
 
         cout << endl;
     }
@@ -112,9 +90,7 @@ void Library::displayTransactions() {
     vector<Transaction> transactions =
         transactionRepository.getAll();
 
-    for (const Transaction& transaction :
-         transactions) {
-
+    for (const Transaction& transaction : transactions) {
         transaction.display();
         cout << endl;
     }

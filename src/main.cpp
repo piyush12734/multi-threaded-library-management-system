@@ -8,6 +8,7 @@
 #include "../include/MemberRepository.h"
 #include "../include/ThreadPool.h"
 #include "../include/Logger.h"
+#include "../include/OperationResult.h"
 
 #include <atomic>
 #include <iostream>
@@ -17,6 +18,33 @@
 #include <thread>
 
 using namespace std;
+
+
+string operationResultToString(OperationResult result) {
+
+    switch (result) {
+
+        case OperationResult::Success:
+            return "SUCCESS";
+
+        case OperationResult::MemberNotFound:
+            return "FAILED - member not found";
+
+        case OperationResult::BookNotFound:
+            return "FAILED - book not found";
+
+        case OperationResult::BookNotAvailable:
+            return "FAILED - book already borrowed";
+
+        case OperationResult::BookAlreadyAvailable:
+            return "FAILED - book is already available";
+
+        case OperationResult::DatabaseError:
+            return "FAILED - database error";
+    }
+
+    return "FAILED - unknown result";
+}
 
 int main() {
 
@@ -141,10 +169,9 @@ int main() {
                 &successfulBorrows
             ]() {
 
-                bool success =
-                    library.borrowBook(101, 1);
+                OperationResult result = library.borrowBook(101, 1);
 
-                if (success) {
+                if (result == OperationResult::Success) {
                     successfulBorrows.fetch_add(1);
                 }
 
@@ -154,7 +181,7 @@ int main() {
                         << " | Thread "
                         << this_thread::get_id()
                         << " | Result: "
-                        << (success ? "SUCCESS" : "FAILED");
+                        << operationResultToString(result);
 
                 borrowLogger.log(message.str());
             });
@@ -185,12 +212,8 @@ int main() {
 
 
     if (successfulBorrows.load() > 0) {
-    bool returned = library.returnBook(101, 1);
-
-    cout << (returned
-        ? "Book returned after stress test."
-        : "Failed to return book after stress test.")
-        << endl;
+    OperationResult result = library.returnBook(101, 1);
+    cout << operationResultToString(result)<< endl;
     }
 
 
@@ -223,18 +246,38 @@ int main() {
     library.displayMembers();
 
 
+    cout << "\n===== OPERATION RESULT TESTS =====\n";
+
+    // Test 1: Member does not exist
+    cout << "Missing member: "
+        << operationResultToString(library.borrowBook(99999, 1))
+        << '\n';
+
+    // Test 2: Book does not exist during borrowing
+    cout << "Missing book (borrow): "
+        << operationResultToString(library.borrowBook(101, 99999))
+        << '\n';
+
+    // Test 3: Book does not exist during returning
+    cout << "Missing book (return): "
+        << operationResultToString(library.returnBook(101, 99999))
+        << '\n';
+
+    // Test 4: Book is already available
+    cout << "Return available book: "
+        << operationResultToString(library.returnBook(101, 1))
+        << '\n';
+    
+    
     // ============================================================
     // NORMAL BORROW TEST
     // ============================================================
 
     cout << "\n===== BORROW BOOK =====\n";
 
-    bool borrowed = library.borrowBook(101, 1);
-    
-    cout << (borrowed
-    ? "Book borrowed successfully."
-    : "Borrow failed: book unavailable or invalid member.")
-    << endl;
+    OperationResult borrowed = library.borrowBook(101, 1);
+
+    cout << operationResultToString(borrowed) << endl;
 
 
     // ============================================================
@@ -253,12 +296,9 @@ int main() {
     cout << "\n===== BORROW SAME BOOK AGAIN =====\n";
 
 
-    bool borrowedAgain = library.borrowBook(101, 1);
+    OperationResult borrowedAgain = library.borrowBook(101, 1);
 
-    cout << (borrowedAgain
-    ? "Book borrowed successfully."
-    : "Second borrow correctly rejected.")
-    << endl;
+    cout << operationResultToString(borrowedAgain) << endl;
 
 
     // ============================================================
@@ -267,13 +307,9 @@ int main() {
 
     cout << "\n===== RETURN BOOK =====\n";
 
-    bool returned = library.returnBook(101, 1);
+    OperationResult returned = library.returnBook(101, 1);
 
-    cout << (returned
-    ? "Book returned successfully."
-    : "Return failed: book unavailable or invalid member.")
-    << endl;
-
+    cout << operationResultToString(returned) << endl;
 
     // ============================================================
     // DISPLAY BOOKS AFTER RETURN

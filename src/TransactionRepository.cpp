@@ -13,7 +13,6 @@ int TransactionRepository::add(
     int bookId,
     TransactionType type
 ) {
-
     return database.insertTransaction(
         memberId,
         bookId,
@@ -22,26 +21,23 @@ int TransactionRepository::add(
 }
 
 vector<Transaction> TransactionRepository::getAll() {
-
     return database.getTransactions();
 }
 
-bool TransactionRepository::borrowBook(
+OperationResult TransactionRepository::borrowBook(
     int memberId,
     int bookId
 ) {
-
     return database.borrowBook(
         memberId,
         bookId
     );
 }
 
-bool TransactionRepository::returnBook(
+OperationResult TransactionRepository::returnBook(
     int memberId,
     int bookId
 ) {
-
     return database.returnBook(
         memberId,
         bookId

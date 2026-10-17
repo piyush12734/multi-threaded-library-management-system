@@ -8,16 +8,16 @@
 #include "Member.h"
 #include "Transaction.h"
 #include "ConnectionPool.h"
+#include "OperationResult.h"
 
 using namespace std;
 
 class Database {
 private:
-    // Manages multiple PostgreSQL connections.
+    // Manages reusable PostgreSQL connections.
     ConnectionPool connectionPool;
 
 public:
-    // Creates the database connection pool.
     Database(const string& connectionString);
 
     bool testConnection();
@@ -62,12 +62,12 @@ public:
 
     // ---------------- Atomic Library Operations ----------------
 
-    bool borrowBook(
+    OperationResult borrowBook(
         int memberId,
         int bookId
     );
 
-    bool returnBook(
+    OperationResult returnBook(
         int memberId,
         int bookId
     );

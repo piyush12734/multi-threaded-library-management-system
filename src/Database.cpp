@@ -409,18 +409,17 @@ vector<Transaction> Database::getTransactions() {
 // ATOMIC BORROW OPERATION
 // ============================================================
 
-bool Database::borrowBook(
+OperationResult Database::borrowBook(
     int memberId,
     int bookId
 ) {
-
     try {
         auto lease = connectionPool.acquire();
 
-        // All operations use this one leased connection.
+        // One PostgreSQL transaction for the whole operation.
         pqxx::work transaction(lease.get());
 
-        // 1. Verify that the member exists.
+        // 1. Check whether the member exists.
         pqxx::result memberResult =
             transaction.exec(
                 "SELECT 1 "
@@ -428,14 +427,12 @@ bool Database::borrowBook(
                 "WHERE id = $1 "
                 "AND role = 'MEMBER' "
                 "LIMIT 1",
-                pqxx::params{
-                    memberId
-                }
+                pqxx::params{memberId}
             );
 
-            if (memberResult.empty()) {
-                return false;
-            }
+        if (memberResult.empty()) {
+            return OperationResult::MemberNotFound;
+        }
 
         // 2. Claim the book only if it is available.
         pqxx::result bookResult =
@@ -445,57 +442,62 @@ bool Database::borrowBook(
                 "WHERE id = $1 "
                 "AND available = TRUE "
                 "RETURNING id",
-                pqxx::params{
-                    bookId
-                }
+                pqxx::params{bookId}
             );
 
-            if (bookResult.empty()) {
-                return false;
+        if (bookResult.empty()) {
+
+            // The update failed. Check whether the book exists.
+            pqxx::result existingBook =
+                transaction.exec(
+                    "SELECT 1 FROM books WHERE id = $1",
+                    pqxx::params{bookId}
+                );
+
+            if (existingBook.empty()) {
+                return OperationResult::BookNotFound;
             }
 
-        // 3. Record the borrow.
+            return OperationResult::BookNotAvailable;
+        }
+
+        // 3. Record the borrow in the same transaction.
         transaction.exec(
             "INSERT INTO transactions "
             "(member_id, book_id, type) "
             "VALUES ($1, $2, 'BORROW')",
-            pqxx::params{
-                memberId,
-                bookId
-            }
+            pqxx::params{memberId, bookId}
         );
 
-        // 4. Commit the update and transaction together.
+        // 4. Commit both changes together.
         transaction.commit();
 
-        return true;
+        return OperationResult::Success;
 
     } catch (const exception& e) {
-
         cerr << "Atomic borrow failed: "
              << e.what()
              << endl;
 
-        return false;
+        return OperationResult::DatabaseError;
     }
 }
-
 
 // ============================================================
 // ATOMIC RETURN OPERATION
 // ============================================================
 
-bool Database::returnBook(
+OperationResult Database::returnBook(
     int memberId,
     int bookId
 ) {
-
     try {
         auto lease = connectionPool.acquire();
 
+        // One PostgreSQL transaction for the whole operation.
         pqxx::work transaction(lease.get());
 
-        // 1. Verify that the member exists.
+        // 1. Check whether the member exists.
         pqxx::result memberResult =
             transaction.exec(
                 "SELECT 1 "
@@ -503,16 +505,14 @@ bool Database::returnBook(
                 "WHERE id = $1 "
                 "AND role = 'MEMBER' "
                 "LIMIT 1",
-                pqxx::params{
-                    memberId
-                }
+                pqxx::params{memberId}
             );
 
-            if (memberResult.empty()) {
-                return false;
-            }
+        if (memberResult.empty()) {
+            return OperationResult::MemberNotFound;
+        }
 
-        // 2. Return only a currently borrowed book.
+        // 2. Return the book only if it is currently borrowed.
         pqxx::result bookResult =
             transaction.exec(
                 "UPDATE books "
@@ -520,37 +520,43 @@ bool Database::returnBook(
                 "WHERE id = $1 "
                 "AND available = FALSE "
                 "RETURNING id",
-                pqxx::params{
-                    bookId
-                }
+                pqxx::params{bookId}
             );
 
-            if (bookResult.empty()) {
-                return false;
+        if (bookResult.empty()) {
+
+            // The update failed. Check whether the book exists.
+            pqxx::result existingBook =
+                transaction.exec(
+                    "SELECT 1 FROM books WHERE id = $1",
+                    pqxx::params{bookId}
+                );
+
+            if (existingBook.empty()) {
+                return OperationResult::BookNotFound;
             }
 
-        // 3. Record the return.
+            return OperationResult::BookAlreadyAvailable;
+        }
+
+        // 3. Record the return in the same transaction.
         transaction.exec(
             "INSERT INTO transactions "
             "(member_id, book_id, type) "
             "VALUES ($1, $2, 'RETURN')",
-            pqxx::params{
-                memberId,
-                bookId
-            }
+            pqxx::params{memberId, bookId}
         );
 
         // 4. Commit both changes together.
         transaction.commit();
 
-        return true;
+        return OperationResult::Success;
 
     } catch (const exception& e) {
-
         cerr << "Atomic return failed: "
              << e.what()
              << endl;
 
-        return false;
+        return OperationResult::DatabaseError;
     }
 }

@@ -9,6 +9,7 @@
 #include "BookRepository.h"
 #include "TransactionRepository.h"
 #include "MemberRepository.h"
+#include "OperationResult.h"
 
 using namespace std;
 
@@ -28,8 +29,15 @@ public:
     void addBook(const Book& book);
     void addMember(const Member& member);
 
-    bool borrowBook(int memberId, int bookId);
-    bool returnBook(int memberId, int bookId);
+    OperationResult borrowBook(
+        int memberId,
+        int bookId
+    );
+
+    OperationResult returnBook(
+        int memberId,
+        int bookId
+    );
 
     void displayBooks();
     void displayMembers();

@@ -5,6 +5,7 @@
 
 #include "Transaction.h"
 #include "Database.h"
+#include "OperationResult.h"
 
 using namespace std;
 
@@ -23,12 +24,12 @@ public:
 
     vector<Transaction> getAll();
 
-    bool borrowBook(
+    OperationResult borrowBook(
         int memberId,
         int bookId
     );
 
-    bool returnBook(
+    OperationResult returnBook(
         int memberId,
         int bookId
     );
