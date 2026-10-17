@@ -1,3 +1,4 @@
+#include "NetworkServer.h"
 #include "../include/Book.h"
 #include "../include/Member.h"
 #include "../include/Admin.h"
@@ -9,6 +10,7 @@
 #include "../include/ThreadPool.h"
 #include "../include/Logger.h"
 #include "../include/OperationResult.h"
+
 
 #include <atomic>
 #include <iostream>
@@ -338,6 +340,22 @@ int main() {
 
     user1->displayRole();
     user2->displayRole();
+
+    cout << "\n===== NETWORK SERVER =====\n";
+
+        NetworkServer server(library, 54000);
+
+        if (!server.start()) {
+            cerr << "Failed to start network server.\n";
+            return 1;
+        }
+
+        cout << "Server is running on port 54000.\n";
+        cout << "Press Enter to stop the server...\n";
+
+        cin.get();
+
+        server.stop();
 
 
     return 0;
