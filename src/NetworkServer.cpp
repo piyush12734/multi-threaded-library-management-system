@@ -1,6 +1,7 @@
 
 #include "NetworkServer.h"
 
+#include <exception>
 #include <algorithm>
 #include <cctype>
 #include <climits>
@@ -151,21 +152,23 @@ bool NetworkServer::start() {
     return true;
 }
 
+
 void NetworkServer::stop() {
     running_.store(false);
 
-    // Closing the listening socket unblocks accept().
+    // Stop accepting new connections.
     if (listenSocket_ != INVALID_SOCKET) {
         shutdown(listenSocket_, SD_BOTH);
         closesocket(listenSocket_);
         listenSocket_ = INVALID_SOCKET;
     }
 
+    // Wait for the accept loop to finish.
     if (acceptThread_.joinable()) {
         acceptThread_.join();
     }
 
-    // Unblock clients waiting inside recv().
+    // Wake up client handlers that may be waiting in recv().
     {
         std::lock_guard<std::mutex> lock(clientsMutex_);
 
@@ -174,23 +177,78 @@ void NetworkServer::stop() {
         }
     }
 
-    // The accept thread has now stopped adding client threads.
-    for (std::thread& clientThread : clientThreads_) {
-        if (clientThread.joinable()) {
-            clientThread.join();
+    // Join every remaining client handler.
+    for (ClientThread& clientThread : clientThreads_) {
+        if (clientThread.worker.joinable()) {
+            clientThread.worker.join();
         }
     }
 
     clientThreads_.clear();
 
+    // Clean up any sockets left behind.
+    {
+        std::lock_guard<std::mutex> lock(clientsMutex_);
+
+        for (SOCKET client : clientSockets_) {
+            shutdown(client, SD_BOTH);
+            closesocket(client);
+        }
+
+        clientSockets_.clear();
+    }
+
     if (winsockStarted_) {
         WSACleanup();
         winsockStarted_ = false;
     }
+
+    std::cout << "Library server stopped.\n";
 }
+
+
 
 void NetworkServer::acceptLoop(SOCKET listeningSocket) {
     while (running_.load()) {
+        // Join and remove client threads that have already finished.
+        reapFinishedClientThreads();
+
+        // Check for incoming connections with a timeout.
+        // This lets us periodically reclaim completed threads,
+        // even when no new clients are connecting.
+        fd_set readSet;
+        FD_ZERO(&readSet);
+        FD_SET(listeningSocket, &readSet);
+
+        timeval timeout{};
+        timeout.tv_sec = 1;
+
+        int ready = select(
+            0,
+            &readSet,
+            nullptr,
+            nullptr,
+            &timeout
+        );
+
+        if (ready == 0) {
+            continue;
+        }
+
+        if (ready == SOCKET_ERROR) {
+            if (!running_.load()) {
+                break;
+            }
+
+            std::cerr << "Select failed: "
+                      << WSAGetLastError() << '\n';
+            continue;
+        }
+
+        if (!running_.load()) {
+            break;
+        }
+
         SOCKET clientSocket = accept(
             listeningSocket,
             nullptr,
@@ -204,31 +262,114 @@ void NetworkServer::acceptLoop(SOCKET listeningSocket) {
 
             std::cerr << "Accept failed: "
                       << WSAGetLastError() << '\n';
-
             continue;
         }
 
-        try {
-            {
-                std::lock_guard<std::mutex> lock(clientsMutex_);
-                clientSockets_.push_back(clientSocket);
-            }
+        bool registered = false;
 
-            clientThreads_.emplace_back(
-                &NetworkServer::handleClient,
-                this,
-                clientSocket
+        {
+            std::lock_guard<std::mutex> lock(clientsMutex_);
+
+            if (clientSockets_.size() < MAX_CLIENTS) {
+                clientSockets_.push_back(clientSocket);
+                registered = true;
+            }
+        }
+
+        // Reject connections if the server is at capacity.
+        if (!registered) {
+            sendMessage(
+                clientSocket,
+                "ERROR server at capacity\n"
             );
 
-            std::cout << "Client connected.\n";
+            shutdown(clientSocket, SD_BOTH);
+            closesocket(clientSocket);
+            continue;
+        }
+
+        std::shared_ptr<std::atomic<bool>> finished;
+        bool entryAdded = false;
+
+        try {
+            finished =
+                std::make_shared<std::atomic<bool>>(false);
+
+            // Add the thread record before starting the worker.
+            // If allocation fails, no joinable thread is created.
+            clientThreads_.emplace_back();
+            entryAdded = true;
+
+            clientThreads_.back().finished = finished;
+
+            clientThreads_.back().worker = std::thread(
+                [this, clientSocket, finished]() {
+                    try {
+                        handleClient(clientSocket);
+                    } catch (const std::exception& error) {
+                        std::cerr << "Client handler error: "
+                                  << error.what() << '\n';
+
+                        removeClient(clientSocket);
+                    } catch (...) {
+                        std::cerr
+                            << "Unknown client handler error.\n";
+
+                        removeClient(clientSocket);
+                    }
+
+                    finished->store(
+                        true,
+                        std::memory_order_release
+                    );
+                }
+            );
+
+            std::cout << "Client connected. Active clients: ";
+
+            {
+                std::lock_guard<std::mutex> lock(clientsMutex_);
+                std::cout << clientSockets_.size() << '\n';
+            }
         } catch (const std::exception& error) {
             std::cerr << "Could not start client handler: "
                       << error.what() << '\n';
 
+            if (entryAdded &&
+                !clientThreads_.back().worker.joinable()) {
+                clientThreads_.pop_back();
+            }
+
             removeClient(clientSocket);
         }
     }
+
+    // Reclaim completed threads before leaving the accept loop.
+    reapFinishedClientThreads();
 }
+
+
+
+void NetworkServer::reapFinishedClientThreads() {
+    auto it = clientThreads_.begin();
+
+    while (it != clientThreads_.end()) {
+        const bool finished =
+            it->finished &&
+            it->finished->load(std::memory_order_acquire);
+
+        if (finished) {
+            if (it->worker.joinable()) {
+                it->worker.join();
+            }
+
+            it = clientThreads_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
 
 bool NetworkServer::sendMessage(
     SOCKET clientSocket,
@@ -418,19 +559,30 @@ std::string NetworkServer::processCommand(
     return "ERROR unknown command. Type HELP";
 }
 
+
 void NetworkServer::removeClient(SOCKET clientSocket) {
-    std::lock_guard<std::mutex> lock(clientsMutex_);
+    bool foundClient = false;
 
-    auto client = std::find(
-        clientSockets_.begin(),
-        clientSockets_.end(),
-        clientSocket
-    );
+    {
+        std::lock_guard<std::mutex> lock(clientsMutex_);
 
-    if (client != clientSockets_.end()) {
-        clientSockets_.erase(client);
+        auto client = std::find(
+            clientSockets_.begin(),
+            clientSockets_.end(),
+            clientSocket
+        );
+
+        if (client != clientSockets_.end()) {
+            clientSockets_.erase(client);
+            foundClient = true;
+        }
     }
 
-    shutdown(clientSocket, SD_BOTH);
-    closesocket(clientSocket);
+    // Close the socket only if this function removed its record.
+    // This helps prevent accidental double-closing.
+    if (foundClient) {
+        shutdown(clientSocket, SD_BOTH);
+        closesocket(clientSocket);
+    }
 }
+

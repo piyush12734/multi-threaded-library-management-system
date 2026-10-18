@@ -5,7 +5,9 @@
 #include <winsock2.h>
 
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -22,7 +24,6 @@ public:
 
     ~NetworkServer();
 
-    // Prevent accidental copying of socket-owning objects.
     NetworkServer(const NetworkServer&) = delete;
     NetworkServer& operator=(const NetworkServer&) = delete;
 
@@ -30,8 +31,18 @@ public:
     void stop();
 
 private:
+    // Tracks whether an individual client handler has finished.
+    struct ClientThread {
+        std::thread worker;
+        std::shared_ptr<std::atomic<bool>> finished;
+    };
+
+    static constexpr std::size_t MAX_CLIENTS = 64;
+
     void acceptLoop(SOCKET listeningSocket);
     void handleClient(SOCKET clientSocket);
+
+    void reapFinishedClientThreads();
 
     bool sendMessage(
         SOCKET clientSocket,
@@ -55,7 +66,7 @@ private:
 
     std::mutex clientsMutex_;
     std::vector<SOCKET> clientSockets_;
-    std::vector<std::thread> clientThreads_;
+    std::vector<ClientThread> clientThreads_;
 };
 
 #endif
