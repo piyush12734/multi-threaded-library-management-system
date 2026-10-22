@@ -153,22 +153,26 @@ bool NetworkServer::start() {
 }
 
 
-void NetworkServer::stop() {
-    running_.store(false);
 
-    // Stop accepting new connections.
+void NetworkServer::stop() {
+    if(!running_.exchange(false)){
+        return;
+    }
+
+    // The accept loop checks running_ and uses a 1-second
+    // select timeout, so let it exit before closing its socket.
+    if (acceptThread_.joinable()) {
+        acceptThread_.join();
+    }
+
+    // The accept thread no longer uses the listening socket.
     if (listenSocket_ != INVALID_SOCKET) {
         shutdown(listenSocket_, SD_BOTH);
         closesocket(listenSocket_);
         listenSocket_ = INVALID_SOCKET;
     }
 
-    // Wait for the accept loop to finish.
-    if (acceptThread_.joinable()) {
-        acceptThread_.join();
-    }
-
-    // Wake up client handlers that may be waiting in recv().
+    // Ask active client handlers to stop receiving data.
     {
         std::lock_guard<std::mutex> lock(clientsMutex_);
 
@@ -177,7 +181,7 @@ void NetworkServer::stop() {
         }
     }
 
-    // Join every remaining client handler.
+    // Wait for every remaining client handler to finish.
     for (ClientThread& clientThread : clientThreads_) {
         if (clientThread.worker.joinable()) {
             clientThread.worker.join();
@@ -186,7 +190,7 @@ void NetworkServer::stop() {
 
     clientThreads_.clear();
 
-    // Clean up any sockets left behind.
+    // Close any sockets that remain after the handlers exit.
     {
         std::lock_guard<std::mutex> lock(clientsMutex_);
 
@@ -264,6 +268,14 @@ void NetworkServer::acceptLoop(SOCKET listeningSocket) {
                       << WSAGetLastError() << '\n';
             continue;
         }
+
+            // If shutdown began while accept() was running,
+            // close the newly accepted socket without starting a handler.
+            if (!running_.load()) {
+                shutdown(clientSocket, SD_BOTH);
+                closesocket(clientSocket);
+                break;
+            }
 
         bool registered = false;
 
