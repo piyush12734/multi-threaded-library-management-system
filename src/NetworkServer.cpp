@@ -11,6 +11,8 @@
 
 namespace {
     constexpr std::size_t MAX_COMMAND_LENGTH = 4096;
+    constexpr DWORD CLIENT_RECEIVE_TIMEOUT_MS = 120000; // 2 minutes
+    constexpr DWORD CLIENT_SEND_TIMEOUT_MS = 15000;     // 15 seconds
 
     std::string uppercase(std::string text) {
         std::transform(
@@ -276,6 +278,43 @@ void NetworkServer::acceptLoop(SOCKET listeningSocket) {
                 closesocket(clientSocket);
                 break;
             }
+            
+            DWORD receiveTimeout = CLIENT_RECEIVE_TIMEOUT_MS;
+
+            if (setsockopt(
+                    clientSocket,
+                    SOL_SOCKET,
+                    SO_RCVTIMEO,
+                    reinterpret_cast<const char*>(&receiveTimeout),
+                    sizeof(receiveTimeout)
+                ) == SOCKET_ERROR) {
+
+                const int error = WSAGetLastError();
+                closesocket(clientSocket);
+
+                std::cerr << "Could not configure receive timeout: "
+                        << error << '\n';
+                continue;
+            }
+
+            DWORD sendTimeout = CLIENT_SEND_TIMEOUT_MS;
+
+            if (setsockopt(
+                    clientSocket,
+                    SOL_SOCKET,
+                    SO_SNDTIMEO,
+                    reinterpret_cast<const char*>(&sendTimeout),
+                    sizeof(sendTimeout)
+                ) == SOCKET_ERROR) {
+
+                const int error = WSAGetLastError();
+                closesocket(clientSocket);
+
+                std::cerr << "Could not configure send timeout: "
+                        << error << '\n';
+                continue;
+            }
+
 
         bool registered = false;
 
@@ -523,7 +562,7 @@ std::string NetworkServer::processCommand(
 
     if (command == "HELP") {
         return
-            "Commands: HELP | PING | "
+            "Commands: HELP | PING | LIST | SEARCH <keyword> | "
             "BORROW <memberId> <bookId> | "
             "RETURN <memberId> <bookId> | QUIT";
     }
@@ -537,6 +576,84 @@ std::string NetworkServer::processCommand(
 
         return "PONG";
     }
+    
+    if (command == "LIST") {
+        std::string extra;
+
+        if (input >> extra) {
+            return "ERROR LIST takes no arguments";
+        }
+
+        vector<Book> books = library_.getBooks();
+
+        if (books.empty()) {
+            return "No books found.";
+        }
+
+        // Send one complete response line because the client
+        // currently reads one newline-terminated response.
+        std::ostringstream response;
+        response << "BOOKS: ";
+
+        bool first = true;
+
+        for (const Book& book : books) {
+            if (!first) {
+                response << " || ";
+            }
+
+            first = false;
+
+            response
+                << "ID=" << book.getId()
+                << " | Title=" << book.getTitle()
+                << " | Author=" << book.getAuthor()
+                << " | ISBN=" << book.getIsbn()
+                << " | Status="
+                << (book.isAvailable() ? "Available" : "Borrowed");
+        }
+
+        return response.str();
+    }
+
+    if (command == "SEARCH") {
+        std::string keyword;
+        std::getline(input >> std::ws, keyword);
+
+        if (keyword.empty()) {
+            return "ERROR Usage: SEARCH <keyword>";
+        }
+
+        vector<Book> books = library_.searchBooks(keyword);
+
+        if (books.empty()) {
+            return "No matching books found.";
+        }
+
+        std::ostringstream response;
+        response << "MATCHES: ";
+
+        bool first = true;
+
+        for (const Book& book : books) {
+            if (!first) {
+                response << " || ";
+            }
+
+            first = false;
+
+            response
+                << "ID=" << book.getId()
+                << " | Title=" << book.getTitle()
+                << " | Author=" << book.getAuthor()
+                << " | ISBN=" << book.getIsbn()
+                << " | Status="
+                << (book.isAvailable() ? "Available" : "Borrowed");
+        }
+
+        return response.str();
+    }
+
 
     if (command == "QUIT") {
         return "BYE";

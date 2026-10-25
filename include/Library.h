@@ -1,6 +1,8 @@
+
 #ifndef LIBRARY_H
 #define LIBRARY_H
 
+#include <string>
 #include <vector>
 
 #include "Book.h"
@@ -38,6 +40,12 @@ public:
         int memberId,
         int bookId
     );
+
+    // Return book data to the caller instead of only printing it.
+    vector<Book> getBooks();
+
+    // Search book titles, authors, and ISBNs.
+    vector<Book> searchBooks(const string& keyword);
 
     void displayBooks();
     void displayMembers();

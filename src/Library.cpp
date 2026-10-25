@@ -1,5 +1,7 @@
 #include "../include/Library.h"
 #include <iostream>
+#include <algorithm>
+#include <cctype>
 
 using namespace std;
 
@@ -46,6 +48,59 @@ OperationResult Library::returnBook(
         bookId
     );
 }
+
+
+vector<Book> Library::getBooks() {
+    return bookRepository.getAll();
+}
+
+vector<Book> Library::searchBooks(const string& keyword) {
+    vector<Book> results;
+
+    if (keyword.empty()) {
+        return results;
+    }
+
+    // Convert the keyword to lowercase.
+    string searchKeyword = keyword;
+
+    transform(
+        searchKeyword.begin(),
+        searchKeyword.end(),
+        searchKeyword.begin(),
+        [](unsigned char ch) {
+            return static_cast<char>(tolower(ch));
+        }
+    );
+
+    // Retrieve books from the existing repository.
+    vector<Book> books = bookRepository.getAll();
+
+    for (const Book& book : books) {
+        string searchableText =
+            book.getTitle() + " " +
+            book.getAuthor() + " " +
+            book.getIsbn();
+
+        // Convert the title, author, and ISBN to lowercase.
+        transform(
+            searchableText.begin(),
+            searchableText.end(),
+            searchableText.begin(),
+            [](unsigned char ch) {
+                return static_cast<char>(tolower(ch));
+            }
+        );
+
+        // Match if the keyword appears in any searchable field.
+        if (searchableText.find(searchKeyword) != string::npos) {
+            results.push_back(book);
+        }
+    }
+
+    return results;
+}
+
 
 void Library::displayBooks() {
 
