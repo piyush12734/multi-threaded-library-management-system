@@ -14,8 +14,7 @@ private:
 public:
     BookRepository(Database& database);
 
-    void add(const Book& book);
-
+    OperationResult add(const Book& book);
     vector<Book> getAll();
 
     bool findById(int id, Book& book);

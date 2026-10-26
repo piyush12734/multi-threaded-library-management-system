@@ -7,15 +7,16 @@ BookRepository::BookRepository(Database& database)
     : database(database) {
 }
 
-void BookRepository::add(const Book& book) {
 
-    database.insertBook(
+OperationResult BookRepository::add(const Book& book) {
+    return database.insertBook(
         book.getId(),
         book.getTitle(),
         book.getAuthor(),
         book.getIsbn()
     );
 }
+
 
 vector<Book> BookRepository::getAll() {
 

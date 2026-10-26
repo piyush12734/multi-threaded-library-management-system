@@ -1,6 +1,7 @@
 
 #include "NetworkServer.h"
 
+#include <iomanip>
 #include <exception>
 #include <algorithm>
 #include <cctype>
@@ -46,6 +47,9 @@ namespace {
 
             case OperationResult::DatabaseError:
                 return "FAILED - database error";
+
+            case OperationResult::BookAlreadyExists:
+                return "FAILED - book already exists";
         }
 
         return "FAILED - unknown result";
@@ -563,6 +567,7 @@ std::string NetworkServer::processCommand(
     if (command == "HELP") {
         return
             "Commands: HELP | PING | LIST | SEARCH <keyword> | "
+            "ADD_BOOK <id> \"<title>\" \"<author>\" <isbn> | "
             "BORROW <memberId> <bookId> | "
             "RETURN <memberId> <bookId> | QUIT";
     }
@@ -684,6 +689,50 @@ std::string NetworkServer::processCommand(
 
         return resultToString(result);
     }
+
+    
+    if (command == "ADD_BOOK") {
+        int id;
+        string title;
+        string author;
+        string isbn;
+        string extra;
+
+        // Read the ID, quoted title, quoted author, and ISBN.
+        if (!(input >> id
+                     >> std::quoted(title)
+                     >> std::quoted(author)
+                     >> isbn)
+            || (input >> extra)) {
+
+            return "ERROR Usage: ADD_BOOK <id> \"<title>\" "
+                   "\"<author>\" <isbn>";
+        }
+
+        // Validate the ID and required fields.
+        if (id <= 0 ||
+            title.empty() ||
+            author.empty() ||
+            isbn.empty()) {
+
+            return "ERROR ID, title, author, and ISBN are required";
+        }
+
+        // Enforce the limits in the existing database schema.
+        if (title.size() > 200 ||
+            author.size() > 150 ||
+            isbn.size() > 20) {
+
+            return "ERROR title, author, or ISBN exceeds maximum length";
+        }
+
+        Book newBook(id, title, author, isbn);
+
+        OperationResult result = library_.addBook(newBook);
+
+        return resultToString(result);
+    }
+
 
     return "ERROR unknown command. Type HELP";
 }

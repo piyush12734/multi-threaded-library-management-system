@@ -7,6 +7,7 @@ enum class OperationResult {
     BookNotFound,
     BookNotAvailable,
     BookAlreadyAvailable,
+    BookAlreadyExists,
     DatabaseError
 };
 

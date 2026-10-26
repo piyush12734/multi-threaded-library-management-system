@@ -24,7 +24,7 @@ public:
 
     // ---------------- Book Operations ----------------
 
-    void insertBook(
+    OperationResult insertBook(
         int id,
         const string& title,
         const string& author,

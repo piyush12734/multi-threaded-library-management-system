@@ -15,9 +15,11 @@ Library::Library(
       memberRepository(memberRepository) {
 }
 
-void Library::addBook(const Book& book) {
-    bookRepository.add(book);
+
+OperationResult Library::addBook(const Book& book) {
+    return bookRepository.add(book);
 }
+
 
 void Library::addMember(const Member& member) {
 

@@ -46,13 +46,13 @@ bool Database::testConnection() {
 // BOOK OPERATIONS
 // ============================================================
 
-void Database::insertBook(
+
+OperationResult Database::insertBook(
     int id,
     const string& title,
     const string& author,
     const string& isbn
 ) {
-
     try {
         auto lease = connectionPool.acquire();
 
@@ -75,13 +75,30 @@ void Database::insertBook(
         cout << "Book inserted into database successfully."
              << endl;
 
-    } catch (const exception& e) {
+        return OperationResult::Success;
 
+    } catch (const pqxx::sql_error& e) {
         cerr << "Failed to insert book: "
              << e.what()
              << endl;
+
+        // PostgreSQL error code 23505 means a unique
+        // constraint was violated (duplicate ID or ISBN).
+        if (e.sqlstate() == "23505") {
+            return OperationResult::BookAlreadyExists;
+        }
+
+        return OperationResult::DatabaseError;
+
+    } catch (const exception& e) {
+        cerr << "Failed to insert book: "
+             << e.what()
+             << endl;
+
+        return OperationResult::DatabaseError;
     }
 }
+
 
 
 vector<Book> Database::getBooks() {

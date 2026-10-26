@@ -28,7 +28,7 @@ public:
         MemberRepository& memberRepository
     );
 
-    void addBook(const Book& book);
+    OperationResult addBook(const Book& book);
     void addMember(const Member& member);
 
     OperationResult borrowBook(
