@@ -15,7 +15,7 @@ private:
 public:
     MemberRepository(Database& database);
 
-    void add(const Member& member);
+    OperationResult add(const Member& member);
 
     vector<Member> getAll();
 

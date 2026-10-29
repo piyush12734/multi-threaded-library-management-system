@@ -8,16 +8,15 @@ MemberRepository::MemberRepository(
     : database(database) {
 }
 
-void MemberRepository::add(
-    const Member& member
-) {
 
-    database.insertMember(
+OperationResult MemberRepository::add(const Member& member) {
+    return database.insertMember(
         member.getId(),
         member.getName(),
         member.getEmail()
     );
 }
+
 
 vector<Member> MemberRepository::getAll() {
 

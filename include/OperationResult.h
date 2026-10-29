@@ -1,3 +1,4 @@
+
 #ifndef OPERATION_RESULT_H
 #define OPERATION_RESULT_H
 
@@ -8,6 +9,7 @@ enum class OperationResult {
     BookNotAvailable,
     BookAlreadyAvailable,
     BookAlreadyExists,
+    MemberAlreadyExists,
     DatabaseError
 };
 

@@ -21,15 +21,17 @@ OperationResult Library::addBook(const Book& book) {
 }
 
 
-void Library::addMember(const Member& member) {
 
+OperationResult Library::addMember(const Member& member) {
+    // Check whether this member ID already exists.
     if (memberRepository.exists(member.getId())) {
-        cout << "Member already exists." << endl;
-        return;
+        return OperationResult::MemberAlreadyExists;
     }
 
-    memberRepository.add(member);
+    // Return the actual database insertion result.
+    return memberRepository.add(member);
 }
+
 
 OperationResult Library::borrowBook(
     int memberId,
@@ -54,6 +56,10 @@ OperationResult Library::returnBook(
 
 vector<Book> Library::getBooks() {
     return bookRepository.getAll();
+}
+
+vector<Member> Library::getMembers() {
+    return memberRepository.getAll();
 }
 
 vector<Book> Library::searchBooks(const string& keyword) {

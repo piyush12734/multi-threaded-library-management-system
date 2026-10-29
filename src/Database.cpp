@@ -194,12 +194,11 @@ void Database::updateBookAvailability(
 // MEMBER OPERATIONS
 // ============================================================
 
-void Database::insertMember(
+OperationResult Database::insertMember(
     int id,
     const string& name,
     const string& email
 ) {
-
     try {
         auto lease = connectionPool.acquire();
 
@@ -221,13 +220,30 @@ void Database::insertMember(
         cout << "Member inserted into database successfully."
              << endl;
 
-    } catch (const exception& e) {
+        return OperationResult::Success;
 
+    } catch (const pqxx::sql_error& e) {
         cerr << "Failed to insert member: "
              << e.what()
              << endl;
+
+        // PostgreSQL SQLSTATE 23505 means a unique
+        // constraint was violated (duplicate ID or email).
+        if (e.sqlstate() == "23505") {
+            return OperationResult::MemberAlreadyExists;
+        }
+
+        return OperationResult::DatabaseError;
+
+    } catch (const exception& e) {
+        cerr << "Failed to insert member: "
+             << e.what()
+             << endl;
+
+        return OperationResult::DatabaseError;
     }
 }
+
 
 
 vector<Member> Database::getMembers() {

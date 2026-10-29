@@ -40,7 +40,7 @@ public:
 
     // ---------------- Member Operations ----------------
 
-    void insertMember(
+    OperationResult insertMember(
         int id,
         const string& name,
         const string& email

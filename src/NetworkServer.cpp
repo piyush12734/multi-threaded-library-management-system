@@ -50,6 +50,9 @@ namespace {
 
             case OperationResult::BookAlreadyExists:
                 return "FAILED - book already exists";
+
+            case OperationResult::MemberAlreadyExists:
+                return "FAILED - member already exists";
         }
 
         return "FAILED - unknown result";
@@ -564,13 +567,18 @@ std::string NetworkServer::processCommand(
     input >> command;
     command = uppercase(command);
 
+
+    
     if (command == "HELP") {
         return
-            "Commands: HELP | PING | LIST | SEARCH <keyword> | "
+            "Commands: HELP | PING | LIST | LIST_MEMBERS | "
+            "SEARCH <keyword> | "
             "ADD_BOOK <id> \"<title>\" \"<author>\" <isbn> | "
+            "ADD_MEMBER <id> \"<name>\" <email> | "
             "BORROW <memberId> <bookId> | "
             "RETURN <memberId> <bookId> | QUIT";
     }
+
 
     if (command == "PING") {
         std::string extra;
@@ -620,6 +628,42 @@ std::string NetworkServer::processCommand(
 
         return response.str();
     }
+
+    
+    if (command == "LIST_MEMBERS") {
+        std::string extra;
+
+        if (input >> extra) {
+            return "ERROR LIST_MEMBERS takes no arguments";
+        }
+
+        std::vector<Member> members = library_.getMembers();
+
+        if (members.empty()) {
+            return "No members found.";
+        }
+
+        std::ostringstream response;
+        response << "MEMBERS: ";
+
+        bool first = true;
+
+        for (const Member& member : members) {
+            if (!first) {
+                response << " || ";
+            }
+
+            first = false;
+
+            response
+                << "ID=" << member.getId()
+                << " | Name=" << member.getName()
+                << " | Email=" << member.getEmail();
+        }
+
+        return response.str();
+    }
+
 
     if (command == "SEARCH") {
         std::string keyword;
@@ -689,6 +733,51 @@ std::string NetworkServer::processCommand(
 
         return resultToString(result);
     }
+
+    
+    if (command == "ADD_MEMBER") {
+        int id;
+        string name;
+        string email;
+        string extra;
+
+        // Read the member ID, quoted name, and email.
+        if (!(input >> id >> std::quoted(name) >> email)
+            || (input >> extra)) {
+
+            return "ERROR Usage: ADD_MEMBER <id> "
+                   "\"<name>\" <email>";
+        }
+
+        // Validate required fields and ID.
+        if (id <= 0 || name.empty() || email.empty()) {
+            return "ERROR ID, name, and email are required";
+        }
+
+        // Match the maximum lengths in db/schema.sql.
+        if (name.size() > 100 || email.size() > 150) {
+            return "ERROR name or email exceeds maximum length";
+        }
+
+        // Basic validation: require an @ and a dot after it.
+        size_t atPosition = email.find('@');
+
+        if (atPosition == string::npos ||
+            atPosition == 0 ||
+            atPosition == email.size() - 1 ||
+            email.find('.', atPosition) == string::npos ||
+            email.find(' ') != string::npos) {
+
+            return "ERROR invalid email format";
+        }
+
+        Member newMember(id, name, email);
+
+        OperationResult result = library_.addMember(newMember);
+
+        return resultToString(result);
+    }
+
 
     
     if (command == "ADD_BOOK") {

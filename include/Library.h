@@ -29,7 +29,7 @@ public:
     );
 
     OperationResult addBook(const Book& book);
-    void addMember(const Member& member);
+    OperationResult addMember(const Member& member);
 
     OperationResult borrowBook(
         int memberId,
@@ -46,6 +46,8 @@ public:
 
     // Search book titles, authors, and ISBNs.
     vector<Book> searchBooks(const string& keyword);
+
+    vector<Member> getMembers();
 
     void displayBooks();
     void displayMembers();
